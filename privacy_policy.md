@@ -1,4 +1,4 @@
-Política de Privacidad
+# Política de Privacidad
 
 Mediary es una aplicación local orientada a la privacidad.
 
