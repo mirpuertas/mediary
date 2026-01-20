@@ -37,6 +37,10 @@ responsabilidades y facilidad de mantenimiento.
 - `screens/`: pantallas de la aplicación
 - `widgets/`, `ui/`, `utils/`: componentes y helpers compartidos
 
+## Navegación
+La estructura de navegación de la aplicación puede verse en
+[docs/navigation.md](docs/navigation.md).
+
 ## Privacidad
 Mediary no recopila, transmite ni almacena información fuera del dispositivo.
 No requiere cuentas de usuario, no utiliza servicios en la nube y no incluye
