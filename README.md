@@ -1,4 +1,4 @@
-# Mediary
+# 📱Mediary
 Privacy-first, offline health & medication journal built with Flutter.
 
 ## Status
