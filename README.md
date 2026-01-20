@@ -46,6 +46,9 @@ Mediary no recopila, transmite ni almacena información fuera del dispositivo.
 No requiere cuentas de usuario, no utiliza servicios en la nube y no incluye
 analítica ni publicidad.
 
+Ver política de privacidad completa en
+[PRIVACY_POLICY.md](privacy_policy.md).
+
 ## Roadmap (ideas para v2)
 - Internacionalización (español / inglés)
 - Mejoras en el flujo de recordatorios (marcar tomas antes del horario)
