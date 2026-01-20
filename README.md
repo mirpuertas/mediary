@@ -1,4 +1,4 @@
-# Mediary
+# 📱Mediary
 Privacy-first, offline health & medication journal built with Flutter.
 
 ## Status
@@ -36,6 +36,10 @@ responsabilidades y facilidad de mantenimiento.
 - `services/`: base de datos, notificaciones y exportación
 - `screens/`: pantallas de la aplicación
 - `widgets/`, `ui/`, `utils/`: componentes y helpers compartidos
+
+## Navegación
+La estructura de navegación de la aplicación puede verse en
+[docs/navigation.md](docs/navigation.md).
 
 ## Privacidad
 Mediary no recopila, transmite ni almacena información fuera del dispositivo.

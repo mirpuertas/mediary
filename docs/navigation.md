@@ -1,7 +1,7 @@
 # Navigation map
 
 High-level navigation structure of the app:
-
+```
 Home
  ├─ Daily entry
  │   ├─ Sleep
@@ -19,3 +19,4 @@ Home
 Quick flows:
 - Notification → Quick intake
 - Notification → Daily entry (sleep)
+```
