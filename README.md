@@ -57,6 +57,7 @@ Ver política de privacidad completa en
 - Consistencia y normalización del sistema de colores dinámicos
 - Soporte de pantalla borde a borde (edge-to-edge) adaptable a Android 15+
 - Mejoras de accesibilidad y pulido visual
+- Modularización de arquitectura y mantenibilidad
 - Tests y CI básico
 
 ## Estado del repositorio
