@@ -6,10 +6,16 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     
+    <!-- Security permissions -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    
     <application
         android:label="Mediary"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:enableOnBackInvokedCallback="true">
 
         <activity
             android:name=".MainActivity"
@@ -19,7 +25,8 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait">
 
             <meta-data
             android:name="io.flutter.embedding.android.NormalTheme"
@@ -44,7 +51,6 @@
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false"/>
 
-        <!-- ✅ ESTE ES EL QUE TE FALTA PARA QUE FUNCIONEN LOS BOTONES -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
             android:exported="false" />
@@ -52,6 +58,22 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Water counter home screen widget -->
+        <receiver
+            android:name="com.mirpuertas.mediary.WaterWidgetProvider"
+            android:exported="true"
+            android:enabled="true"
+            android:label="@string/water_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.mirpuertas.mediary.WATER_INC" />
+                <action android:name="com.mirpuertas.mediary.WATER_DEC" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/water_widget_info" />
+        </receiver>
     </application>
 
     <!-- Required to query activities that can process text, see:

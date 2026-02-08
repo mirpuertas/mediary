@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Aproximación al esquema de colores de Mediary (seed 0xFF3F51B5) -->
+    <color name="mediary_widget_surface">#FFFFFF</color>
+    <color name="mediary_widget_on_surface">#111111</color>
+    <color name="mediary_widget_muted">#66000000</color>
+    <color name="mediary_widget_outline">#1A000000</color>
+
+    <color name="mediary_primary">#3F51B5</color>
+    <color name="mediary_on_primary">#FFFFFF</color>
+</resources>
+

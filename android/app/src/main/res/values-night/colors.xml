@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Variante oscura del widget, alineada al look oscuro de la app -->
+    <color name="mediary_widget_surface">#0F2433</color>
+    <color name="mediary_widget_on_surface">#D6ECFF</color>
+    <color name="mediary_widget_muted">#99D6ECFF</color>
+    <color name="mediary_widget_outline">#33000000</color>
+
+    <color name="mediary_primary">#6FA3C8</color>
+    <color name="mediary_on_primary">#071821</color>
+</resources>
+
