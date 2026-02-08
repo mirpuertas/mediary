@@ -20,8 +20,6 @@ class MedicationReminder {
   bool get isDaily => daysOfWeek.length == 7;
 
   String get daysText {
-    if (isDaily) return 'Todos los días';
-
     const dayNames = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
     return daysOfWeek.map((d) => dayNames[d - 1]).join(' ');
   }

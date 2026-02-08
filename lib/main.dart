@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:med_journal/l10n/gen/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,36 +10,47 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz_lib;
 import 'package:flutter_timezone/flutter_timezone.dart';
 
-import 'providers/medication_provider.dart';
-import 'providers/sleep_entry_provider.dart';
-import 'providers/theme_provider.dart';
+import 'features/medication/state/medication_controller.dart';
+import 'features/medication/data/intake_repository.dart';
+import 'features/medication/data/medication_repository.dart';
+import 'features/sleep/state/sleep_controller.dart';
+import 'features/sleep/data/sleep_repository.dart';
+import 'providers/theme_controller.dart';
+import 'providers/app_preferences_controller.dart';
+import 'ui/app_theme_tokens.dart';
 
-import 'screens/home_screen.dart';
-import 'screens/welcome_screen.dart';
-import 'screens/splash_screen.dart';
-import 'screens/medications_screen.dart';
+import 'features/app_start/presentation/screens/welcome_screen.dart';
+import 'features/app_start/presentation/screens/splash_screen.dart';
 
 import 'services/notification_service.dart';
 import 'services/database_helper.dart';
+import 'services/error_logger.dart';
+import 'widgets/app_lock_listener.dart';
 
 import 'app/navigation.dart';
+import 'app/routes.dart';
 
 import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   tz.initializeTimeZones();
   final String timeZoneName = await FlutterTimezone.getLocalTimezone();
   tz_lib.setLocalLocation(tz_lib.getLocation(timeZoneName));
 
-  await initializeDateFormatting('es_ES', null);
+  final localeName = PlatformDispatcher.instance.locale.toString();
+  await initializeDateFormatting(localeName, null);
 
   await NotificationService.instance.initialize();
   await _captureLaunchNotificationPayload();
 
   runApp(const MyApp());
-  // Tareas no críticas: no bloquean el primer frame.
   unawaited(_initializeBackgroundTasks());
 }
 
@@ -50,8 +64,12 @@ Future<void> _captureLaunchNotificationPayload() async {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pending_notification_payload', payload);
-  } catch (e) {
-    debugPrint('Error capturando launch notification payload: $e');
+  } catch (e, stackTrace) {
+    ErrorLogger.instance.logNotificationError(
+      e,
+      stackTrace: stackTrace,
+      action: 'Capture launch notification payload',
+    );
   }
 }
 
@@ -74,8 +92,12 @@ Future<void> _initializeBackgroundTasks() async {
 
     await _rescheduleMedicationReminders();
     await _rescheduleMedicationGroupReminders();
-  } catch (e) {
-    debugPrint('Error en inicialización background: $e');
+  } catch (e, stackTrace) {
+    ErrorLogger.instance.logNotificationError(
+      e,
+      stackTrace: stackTrace,
+      action: 'Background tasks initialization',
+    );
   }
 }
 
@@ -94,7 +116,9 @@ Future<void> _rescheduleMedicationReminders() async {
       }
     }
   } catch (e) {
-    debugPrint('Error reprogramando recordatorios: $e');
+    if (kDebugMode) {
+      debugPrint('Error rescheduling medication reminders: $e');
+    }
   }
 }
 
@@ -118,7 +142,9 @@ Future<void> _rescheduleMedicationGroupReminders() async {
       );
     }
   } catch (e) {
-    debugPrint('Error reprogramando recordatorios por grupo: $e');
+    if (kDebugMode) {
+      debugPrint('Error rescheduling group medication reminders: $e');
+    }
   }
 }
 
@@ -129,12 +155,22 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => MedicationProvider()),
-        ChangeNotifierProvider(create: (_) => SleepEntryProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(
+          create: (_) => MedicationController(repo: MedicationRepository()),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SleepController(
+            repo: SleepRepository(),
+            intakeRepo: IntakeRepository(),
+          ),
+        ),
+        ChangeNotifierProvider(create: (_) => ThemeController()),
+        ChangeNotifierProvider(
+          create: (_) => AppPreferencesController()..load(),
+        ),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) {
+      child: Consumer2<ThemeController, AppPreferencesController>(
+        builder: (context, themeController, prefs, _) {
           const seed = Color(0xFF3F51B5);
 
           final lightScheme =
@@ -166,24 +202,42 @@ class MyApp extends StatelessWidget {
           final lightThemeData = ThemeData(
             useMaterial3: true,
             colorScheme: lightScheme,
+            extensions: <ThemeExtension<dynamic>>[
+              AppSurfaceColors.light,
+              AppStatusColors.light(),
+              AppNeutralColors.standard(),
+              AppBrandColors.standard,
+            ],
           );
 
           final darkThemeData = ThemeData(
             useMaterial3: true,
             colorScheme: darkScheme,
+            extensions: <ThemeExtension<dynamic>>[
+              AppSurfaceColors.dark,
+              AppStatusColors.dark(),
+              AppNeutralColors.standard(),
+              AppBrandColors.standard,
+            ],
           );
 
           return MaterialApp(
             navigatorKey: navigatorKey,
+            navigatorObservers: [routeObserver],
             title: 'Mediary',
-            themeMode: themeProvider.themeMode,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: prefs.locale,
+            themeMode: themeController.themeMode,
             theme: lightThemeData,
             darkTheme: darkThemeData,
-            home: AppInitializer(lightTheme: lightThemeData),
-            routes: {
-              '/home': (context) => const HomeScreen(),
-              '/medications': (context) => const MedicationsScreen(),
+            builder: (context, child) {
+              if (child == null) return const SizedBox.shrink();
+              return AppLockListener(child: child);
             },
+            home: AppInitializer(lightTheme: lightThemeData),
+            routes: AppRoutes.routes,
+            onGenerateRoute: AppRoutes.onGenerateRoute,
             debugShowCheckedModeBanner: false,
           );
         },

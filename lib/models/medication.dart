@@ -1,17 +1,11 @@
 enum MedicationType {
   tablet, // comprimido
   drops, // gotas
-  capsule; // cápsula
+  capsule, // cápsula
+  gel; // gel (aplicación)
 
   String get displayName {
-    switch (this) {
-      case MedicationType.tablet:
-        return 'comprimido';
-      case MedicationType.drops:
-        return 'gotas';
-      case MedicationType.capsule:
-        return 'cápsula';
-    }
+    return name;
   }
 
   static MedicationType fromString(String value) {
@@ -22,6 +16,8 @@ enum MedicationType {
         return MedicationType.drops;
       case 'capsule':
         return MedicationType.capsule;
+      case 'gel':
+        return MedicationType.gel;
       default:
         return MedicationType.tablet;
     }

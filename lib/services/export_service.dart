@@ -1,18 +1,22 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Locale;
 
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:med_journal/l10n/gen/app_localizations.dart';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../services/database_helper.dart';
+import '../features/medication/data/intake_repository.dart';
 import '../utils/fraction_helper.dart';
 import '../models/intake_event.dart';
+import '../models/medication.dart';
 
 class ExportDataRange {
   final DateTime start;
@@ -24,6 +28,15 @@ class ExportDataRange {
 class ExportService {
   static final ExportService instance = ExportService._();
   ExportService._();
+
+  AppLocalizations _l10nFor(Locale? locale) {
+    final l = locale ?? const Locale('es');
+    try {
+      return lookupAppLocalizations(l);
+    } catch (_) {
+      return lookupAppLocalizations(const Locale('es'));
+    }
+  }
 
   DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
@@ -46,21 +59,16 @@ class ExportService {
     return !d.isBefore(start) && !d.isAfter(end);
   }
 
-  // Rango global de fechas con datos (sueño o medicación).
-  // Útil para limitar el selector de fechas en UI.
+  // Rango global de fechas con datos (sueño, medicación o día).
   Future<ExportDataRange?> getAvailableDataRange() async {
     final db = DatabaseHelper.instance;
 
     final sleepEntries = await db.getAllSleepEntriesFromDayEntries();
-    final events = await db.getAllIntakeEvents();
-
-    if (sleepEntries.isEmpty && events.isEmpty) return null;
+    final intakeRepo = IntakeRepository();
+    final events = await intakeRepo.getAllIntakeEvents();
 
     final sqlDb = await db.database;
-    final dayRows = await sqlDb.query(
-      'day_entries',
-      columns: ['id', 'entry_date'],
-    );
+    final dayRows = await sqlDb.query('day_entries');
     final Map<int, DateTime> dayDateById = {};
     for (final r in dayRows) {
       final id = r['id'] as int;
@@ -89,6 +97,28 @@ class ExportService {
       consider(dayDate);
     }
 
+    // Considerar días con datos en day_entries (mood/hábitos/etc).
+    for (final r in dayRows) {
+      final dateStr = r['entry_date'] as String?;
+      if (dateStr == null) continue;
+      final dt = _dateOnly(DateTime.parse(dateStr));
+
+      bool hasAny = false;
+      bool nonEmptyText(String? s) => (s ?? '').trim().isNotEmpty;
+
+      // Campos de day_entries que cuentan como "dato".
+      if (r['sleep_quality'] != null) hasAny = true;
+      if (nonEmptyText(r['sleep_notes'] as String?)) hasAny = true;
+      if (r['sleep_duration_minutes'] != null) hasAny = true;
+      if (r['sleep_continuity'] != null) hasAny = true;
+      if (r['day_mood'] != null) hasAny = true;
+      if (r['blocks_walked'] != null) hasAny = true;
+      if (nonEmptyText(r['day_notes'] as String?)) hasAny = true;
+      if (r['water_count'] != null) hasAny = true;
+
+      if (hasAny) consider(dt);
+    }
+
     if (minDate == null || maxDate == null) return null;
     return ExportDataRange(start: minDate!, end: maxDate!);
   }
@@ -111,18 +141,23 @@ class ExportService {
     return '${h}h ${m}m';
   }
 
-  String _getSleepContinuityLabel(int? continuity) {
+  String _getSleepContinuityLabel(AppLocalizations l10n, int? continuity) {
     switch (continuity) {
       case 1:
-        return 'Continuo';
+        return l10n.exportSleepContinuityContinuous;
       case 2:
-        return 'Cortado';
+        return l10n.exportSleepContinuityBroken;
       default:
         return '';
     }
   }
 
-  Future<File> exportToCSV({DateTime? startDate, DateTime? endDate}) async {
+  Future<File> exportToCSV({
+    DateTime? startDate,
+    DateTime? endDate,
+    Locale? locale,
+  }) async {
+    final l10n = _l10nFor(locale);
     final db = DatabaseHelper.instance;
 
     final sleepEntries = await db.getAllSleepEntriesFromDayEntries();
@@ -142,27 +177,41 @@ class ExportService {
 
     /// Sección A: Sueño
     final List<List<dynamic>> sleepRows = [
-      ['Noche', 'Calidad', 'Descripción', 'Horas', 'Cómo', 'Comentarios'],
+      [
+        l10n.exportSleepHeaderNight,
+        l10n.exportSleepHeaderQuality,
+        l10n.exportSleepHeaderDescription,
+        l10n.exportSleepHeaderHours,
+        l10n.exportSleepHeaderHow,
+        l10n.exportSleepHeaderComments,
+      ],
     ];
 
     if (filteredSleep.isEmpty) {
-      sleepRows.add(['NO DATA', '', '', '', '', '']);
+      sleepRows.add([l10n.exportNoData, '', '', '', '', '']);
     } else {
       for (final entry in filteredSleep) {
         sleepRows.add([
           dateFormat.format(entry.nightDate),
           entry.sleepQuality,
-          _getSleepQualityLabel(entry.sleepQuality),
+          _getSleepQualityLabel(l10n, entry.sleepQuality),
           _formatDurationMinutes(entry.sleepDurationMinutes),
-          _getSleepContinuityLabel(entry.sleepContinuity),
+          _getSleepContinuityLabel(l10n, entry.sleepContinuity),
           entry.notes ?? '',
         ]);
       }
     }
 
-    /// Sección B: Medicaciones (NUEVO: day_entry_id)
+    /// Sección B: Medicaciones 
     final List<List<dynamic>> medicationRows = [
-      ['Día', 'Hora', 'Medicamento', 'Unidad', 'Cantidad', 'Nota'],
+      [
+        l10n.exportMedicationHeaderDay,
+        l10n.exportMedicationHeaderTime,
+        l10n.exportMedicationHeaderMedication,
+        l10n.exportMedicationHeaderUnit,
+        l10n.exportMedicationHeaderQuantity,
+        l10n.exportMedicationHeaderNote,
+      ],
     ];
 
     final allEvents = await _collectAllMedicationEventsWithDay(
@@ -180,15 +229,18 @@ class ExportService {
     });
 
     if (allEvents.isEmpty) {
-      medicationRows.add(['NO DATA', '', '', '', '', '']);
+      medicationRows.add([l10n.exportNoData, '', '', '', '', '']);
     } else {
       for (final item in allEvents) {
         final dayDate = item['dayDate'] as DateTime;
         final event = item['event'] as IntakeEvent;
         final medication = item['medication'];
 
-        final quantityText =
-            (event.amountNumerator == null || event.amountDenominator == null)
+        final isGel =
+            medication is Medication && medication.type == MedicationType.gel;
+        final quantityText = isGel
+            ? l10n.exportMedicationApplication
+            : (event.amountNumerator == null || event.amountDenominator == null)
             ? '—'
             : FractionHelper.fractionToText(
                 event.amountNumerator!,
@@ -198,7 +250,7 @@ class ExportService {
         medicationRows.add([
           dateFormat.format(dayDate),
           timeFormat.format(event.takenAt),
-          medication?.name ?? 'Medicamento ${event.medicationId}',
+          medication?.name ?? l10n.exportMedicationFallback(event.medicationId),
           medication?.unit ?? '',
           quantityText,
           event.note ?? '',
@@ -207,13 +259,24 @@ class ExportService {
     }
 
     const cols = 6;
+
+    /// Sección C: Día (ánimo/hábitos)
+    final dayRows = await _buildDayEntriesCsvRows(
+      l10n,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
     final allRows = <List<dynamic>>[
       List.filled(cols, ''),
-      ['Registro de sueño', ...List.filled(cols - 1, '')],
+      [l10n.exportSectionSleep, ...List.filled(cols - 1, '')],
       ...sleepRows,
       List.filled(cols, ''),
-      ['Registro de medicaciones', ...List.filled(cols - 1, '')],
+      [l10n.exportSectionMedications, ...List.filled(cols - 1, '')],
       ...medicationRows,
+      List.filled(cols, ''),
+      [l10n.exportSectionDay, ...List.filled(cols - 1, '')],
+      ...dayRows,
     ];
 
     final csv = const ListToCsvConverter(
@@ -223,16 +286,25 @@ class ExportService {
 
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final path = '${directory.path}/diario_medicamentos_$timestamp.csv';
+    final path = '${directory.path}/${l10n.exportFileBaseDiary}_$timestamp.csv';
     final file = File(path);
     await file.writeAsBytes(_utf16LeBytesWithBom(csv), flush: true);
 
     return file;
   }
 
-  Future<void> shareCSV({DateTime? startDate, DateTime? endDate}) async {
-    final file = await exportToCSV(startDate: startDate, endDate: endDate);
-    await Share.shareXFiles([XFile(file.path)], text: 'Exportación CSV');
+  Future<void> shareCSV({
+    DateTime? startDate,
+    DateTime? endDate,
+    Locale? locale,
+  }) async {
+    final l10n = _l10nFor(locale);
+    final file = await exportToCSV(
+      startDate: startDate,
+      endDate: endDate,
+      locale: locale,
+    );
+    await Share.shareXFiles([XFile(file.path)], text: l10n.exportShareCsv);
   }
 
   /// CSV para analítica (UTF-8, coma, una tabla por archivo)
@@ -240,7 +312,9 @@ class ExportService {
   Future<File> exportSleepAnalyticsCsv({
     DateTime? startDate,
     DateTime? endDate,
+    Locale? locale,
   }) async {
+    final l10n = _l10nFor(locale);
     final db = DatabaseHelper.instance;
 
     final sleepEntries = await db.getAllSleepEntriesFromDayEntries();
@@ -259,21 +333,28 @@ class ExportService {
     final dateFormat = DateFormat('yyyy-MM-dd');
 
     final rows = <List<dynamic>>[
-      ['Noche', 'Calidad', 'Descripción', 'Horas', 'Cómo', 'Comentarios'],
+      [
+        l10n.exportSleepHeaderNight,
+        l10n.exportSleepHeaderQuality,
+        l10n.exportSleepHeaderDescription,
+        l10n.exportSleepHeaderHours,
+        l10n.exportSleepHeaderHow,
+        l10n.exportSleepHeaderComments,
+      ],
       ...filteredSleep.map(
         (e) => [
           dateFormat.format(e.nightDate),
           e.sleepQuality,
-          _getSleepQualityLabel(e.sleepQuality),
+          _getSleepQualityLabel(l10n, e.sleepQuality),
           _formatDurationMinutes(e.sleepDurationMinutes),
-          _getSleepContinuityLabel(e.sleepContinuity),
+          _getSleepContinuityLabel(l10n, e.sleepContinuity),
           e.notes ?? '',
         ],
       ),
     ];
 
     if (filteredSleep.isEmpty) {
-      rows.add(['NO DATA', '', '', '', '', '']);
+      rows.add([l10n.exportNoData, '', '', '', '', '']);
     }
 
     final csv = const ListToCsvConverter(
@@ -283,7 +364,8 @@ class ExportService {
 
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final path = '${directory.path}/sleep_$timestamp.csv';
+    final path =
+        '${directory.path}/${l10n.exportFileBaseSleepAnalytics}_$timestamp.csv';
     final file = File(path);
     await file.writeAsBytes(utf8.encode(csv), flush: true);
     return file;
@@ -292,20 +374,25 @@ class ExportService {
   Future<void> shareSleepAnalyticsCsv({
     DateTime? startDate,
     DateTime? endDate,
+    Locale? locale,
   }) async {
+    final l10n = _l10nFor(locale);
     final file = await exportSleepAnalyticsCsv(
       startDate: startDate,
       endDate: endDate,
+      locale: locale,
     );
     await Share.shareXFiles([
       XFile(file.path),
-    ], text: 'Exportación para analítica: sleep.csv');
+    ], text: l10n.exportShareSleepAnalyticsCsv);
   }
 
   Future<File> exportMedicationsAnalyticsCsv({
     DateTime? startDate,
     DateTime? endDate,
+    Locale? locale,
   }) async {
+    final l10n = _l10nFor(locale);
     final db = DatabaseHelper.instance;
 
     final dateFormat = DateFormat('yyyy-MM-dd');
@@ -325,19 +412,29 @@ class ExportService {
     });
 
     final rows = <List<dynamic>>[
-      ['Día', 'Hora', 'Medicamento', 'Unidad', 'Cantidad', 'Notas'],
+      [
+        l10n.exportMedicationHeaderDay,
+        l10n.exportMedicationHeaderTime,
+        l10n.exportMedicationHeaderMedication,
+        l10n.exportMedicationHeaderUnit,
+        l10n.exportMedicationHeaderQuantity,
+        l10n.exportMedicationHeaderNotes,
+      ],
     ];
 
     if (allEvents.isEmpty) {
-      rows.add(['NO DATA', '', '', '', '', '']);
+      rows.add([l10n.exportNoData, '', '', '', '', '']);
     } else {
       for (final item in allEvents) {
         final dayDate = item['dayDate'] as DateTime;
         final event = item['event'] as IntakeEvent;
         final medication = item['medication'];
 
-        final quantityText =
-            (event.amountNumerator == null || event.amountDenominator == null)
+        final isGel =
+            medication is Medication && medication.type == MedicationType.gel;
+        final quantityText = isGel
+            ? l10n.exportMedicationApplication
+            : (event.amountNumerator == null || event.amountDenominator == null)
             ? '—'
             : FractionHelper.fractionToText(
                 event.amountNumerator!,
@@ -347,7 +444,7 @@ class ExportService {
         rows.add([
           dateFormat.format(dayDate),
           timeFormat.format(event.takenAt),
-          medication?.name ?? 'Medicamento ${event.medicationId}',
+          medication?.name ?? l10n.exportMedicationFallback(event.medicationId),
           medication?.unit ?? '',
           quantityText,
           event.note ?? '',
@@ -362,7 +459,8 @@ class ExportService {
 
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final path = '${directory.path}/medications_$timestamp.csv';
+    final path =
+        '${directory.path}/${l10n.exportFileBaseMedicationsAnalytics}_$timestamp.csv';
     final file = File(path);
     await file.writeAsBytes(utf8.encode(csv), flush: true);
     return file;
@@ -371,17 +469,25 @@ class ExportService {
   Future<void> shareMedicationsAnalyticsCsv({
     DateTime? startDate,
     DateTime? endDate,
+    Locale? locale,
   }) async {
+    final l10n = _l10nFor(locale);
     final file = await exportMedicationsAnalyticsCsv(
       startDate: startDate,
       endDate: endDate,
+      locale: locale,
     );
     await Share.shareXFiles([
       XFile(file.path),
-    ], text: 'Exportación para analítica: medications.csv');
+    ], text: l10n.exportShareMedicationsAnalyticsCsv);
   }
 
-  Future<File> exportToXlsx({DateTime? startDate, DateTime? endDate}) async {
+  Future<File> exportToXlsx({
+    DateTime? startDate,
+    DateTime? endDate,
+    Locale? locale,
+  }) async {
+    final l10n = _l10nFor(locale);
     final db = DatabaseHelper.instance;
 
     final sleepEntries = await db.getAllSleepEntriesFromDayEntries();
@@ -403,12 +509,13 @@ class ExportService {
     final excel = Excel.createExcel();
 
     final defaultSheet = excel.getDefaultSheet();
-    if (defaultSheet != null && defaultSheet != 'Sueño') {
-      excel.rename(defaultSheet, 'Sueño');
+    if (defaultSheet != null && defaultSheet != l10n.exportSheetSleep) {
+      excel.rename(defaultSheet, l10n.exportSheetSleep);
     }
 
-    final sleepSheet = excel['Sueño'];
-    final medsSheet = excel['Medicaciones'];
+    final sleepSheet = excel[l10n.exportSheetSleep];
+    final medsSheet = excel[l10n.exportSheetMedications];
+    final daySheet = excel[l10n.exportSheetDay];
 
     // Ancho de columnas para legibilidad
     sleepSheet.setColumnWidth(0, 14); // Noche
@@ -425,19 +532,26 @@ class ExportService {
     medsSheet.setColumnWidth(4, 14); // Cantidad
     medsSheet.setColumnWidth(5, 40); // Nota
 
+    // Día
+    daySheet.setColumnWidth(0, 14); // Fecha
+    daySheet.setColumnWidth(1, 10); // Ánimo
+    daySheet.setColumnWidth(2, 14); // Cuadras caminadas
+    daySheet.setColumnWidth(3, 10); // Agua
+    daySheet.setColumnWidth(4, 40); // Notas del día
+
     // Headers
     sleepSheet.appendRow([
-      TextCellValue('Noche'),
-      TextCellValue('Calidad'),
-      TextCellValue('Descripción'),
-      TextCellValue('Horas'),
-      TextCellValue('Cómo'),
-      TextCellValue('Comentarios'),
+      TextCellValue(l10n.exportSleepHeaderNight),
+      TextCellValue(l10n.exportSleepHeaderQuality),
+      TextCellValue(l10n.exportSleepHeaderDescription),
+      TextCellValue(l10n.exportSleepHeaderHours),
+      TextCellValue(l10n.exportSleepHeaderHow),
+      TextCellValue(l10n.exportSleepHeaderComments),
     ]);
 
     if (filteredSleep.isEmpty) {
       sleepSheet.appendRow([
-        TextCellValue('NO DATA'),
+        TextCellValue(l10n.exportNoData),
         TextCellValue(''),
         TextCellValue(''),
         TextCellValue(''),
@@ -449,21 +563,21 @@ class ExportService {
         sleepSheet.appendRow([
           TextCellValue(dateFormat.format(entry.nightDate)),
           TextCellValue(entry.sleepQuality.toString()),
-          TextCellValue(_getSleepQualityLabel(entry.sleepQuality)),
+          TextCellValue(_getSleepQualityLabel(l10n, entry.sleepQuality)),
           TextCellValue(_formatDurationMinutes(entry.sleepDurationMinutes)),
-          TextCellValue(_getSleepContinuityLabel(entry.sleepContinuity)),
+          TextCellValue(_getSleepContinuityLabel(l10n, entry.sleepContinuity)),
           TextCellValue(entry.notes ?? ''),
         ]);
       }
     }
 
     medsSheet.appendRow([
-      TextCellValue('Día'),
-      TextCellValue('Hora'),
-      TextCellValue('Medicamento'),
-      TextCellValue('Unidad'),
-      TextCellValue('Cantidad'),
-      TextCellValue('Nota'),
+      TextCellValue(l10n.exportMedicationHeaderDay),
+      TextCellValue(l10n.exportMedicationHeaderTime),
+      TextCellValue(l10n.exportMedicationHeaderMedication),
+      TextCellValue(l10n.exportMedicationHeaderUnit),
+      TextCellValue(l10n.exportMedicationHeaderQuantity),
+      TextCellValue(l10n.exportMedicationHeaderNote),
     ]);
 
     final allEvents = await _collectAllMedicationEventsWithDay(
@@ -481,7 +595,7 @@ class ExportService {
 
     if (allEvents.isEmpty) {
       medsSheet.appendRow([
-        TextCellValue('NO DATA'),
+        TextCellValue(l10n.exportNoData),
         TextCellValue(''),
         TextCellValue(''),
         TextCellValue(''),
@@ -494,8 +608,11 @@ class ExportService {
         final event = item['event'] as IntakeEvent;
         final medication = item['medication'];
 
-        final quantityText =
-            (event.amountNumerator == null || event.amountDenominator == null)
+        final isGel =
+            medication is Medication && medication.type == MedicationType.gel;
+        final quantityText = isGel
+            ? l10n.exportMedicationApplication
+            : (event.amountNumerator == null || event.amountDenominator == null)
             ? '—'
             : FractionHelper.fractionToText(
                 event.amountNumerator!,
@@ -506,7 +623,8 @@ class ExportService {
           TextCellValue(dateFormat.format(dayDate)),
           TextCellValue(timeFormat.format(event.takenAt)),
           TextCellValue(
-            medication?.name ?? 'Medicamento ${event.medicationId}',
+            medication?.name ??
+                l10n.exportMedicationFallback(event.medicationId),
           ),
           TextCellValue(medication?.unit ?? ''),
           TextCellValue(quantityText),
@@ -515,29 +633,65 @@ class ExportService {
       }
     }
 
-    excel.setDefaultSheet('Sueño');
+    excel.setDefaultSheet(l10n.exportSheetSleep);
+
+    // Sheet Día
+    final dayHeaders = <TextCellValue>[
+      TextCellValue(l10n.exportDayHeaderDate),
+      TextCellValue(l10n.exportDayHeaderMood),
+      TextCellValue(l10n.exportDayHeaderBlocksWalked),
+      TextCellValue(l10n.exportDayHeaderWater),
+      TextCellValue(l10n.exportDayHeaderDayNotes),
+    ];
+    daySheet.appendRow(dayHeaders);
+
+    final dayData = await _buildDayEntriesTabularData(
+      l10n,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    if (dayData.isEmpty) {
+      daySheet.appendRow([TextCellValue(l10n.exportNoData)]);
+    } else {
+      for (final row in dayData) {
+        daySheet.appendRow(row.map(TextCellValue.new).toList(growable: false));
+      }
+    }
 
     final bytes = excel.encode();
     if (bytes == null) {
-      throw Exception('No se pudo generar el archivo Excel');
+      throw Exception(l10n.exportErrorExcelGeneration);
     }
 
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final path = '${directory.path}/diario_medicamentos_$timestamp.xlsx';
+    final path =
+        '${directory.path}/${l10n.exportFileBaseDiary}_$timestamp.xlsx';
     final file = File(path);
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
 
-  Future<void> shareXlsx({DateTime? startDate, DateTime? endDate}) async {
-    final file = await exportToXlsx(startDate: startDate, endDate: endDate);
-    await Share.shareXFiles([
-      XFile(file.path),
-    ], text: 'Exportación Excel (.xlsx)');
+  Future<void> shareXlsx({
+    DateTime? startDate,
+    DateTime? endDate,
+    Locale? locale,
+  }) async {
+    final l10n = _l10nFor(locale);
+    final file = await exportToXlsx(
+      startDate: startDate,
+      endDate: endDate,
+      locale: locale,
+    );
+    await Share.shareXFiles([XFile(file.path)], text: l10n.exportShareExcel);
   }
 
-  Future<File> exportToPDF({DateTime? startDate, DateTime? endDate}) async {
+  Future<File> exportToPDF({
+    DateTime? startDate,
+    DateTime? endDate,
+    Locale? locale,
+  }) async {
+    final l10n = _l10nFor(locale);
     final db = DatabaseHelper.instance;
 
     final sleepEntries = await db.getAllSleepEntriesFromDayEntries();
@@ -560,9 +714,16 @@ class ExportService {
 
     /// Preparar data para tabla medicaciones
     final medData = await _buildMedicationTableData(
+      l10n,
       db,
       dateFormat,
       timeFormat,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    final dayData = await _buildDayEntriesTabularData(
+      l10n,
       startDate: startDate,
       endDate: endDate,
     );
@@ -572,18 +733,20 @@ class ExportService {
         pageFormat: PdfPageFormat.a4,
         build: (context) => [
           pw.Text(
-            'Diario (Sueño + Medicación)',
+            l10n.exportPdfTitle,
             style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 6),
           pw.Text(
-            'Exportado: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
+            l10n.exportPdfExportedAt(
+              DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+            ),
             style: const pw.TextStyle(fontSize: 10),
           ),
           pw.SizedBox(height: 24),
 
           pw.Text(
-            'Registro de Sueño',
+            l10n.exportPdfSectionSleep,
             style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 10),
@@ -605,25 +768,25 @@ class ExportService {
             cellStyle: const pw.TextStyle(fontSize: 9),
             cellAlignment: pw.Alignment.centerLeft,
             headers: [
-              'Noche',
-              'Calidad',
-              'Descripción',
-              'Horas',
-              'Cómo',
-              'Comentarios',
+              l10n.exportSleepHeaderNight,
+              l10n.exportSleepHeaderQuality,
+              l10n.exportSleepHeaderDescription,
+              l10n.exportSleepHeaderHours,
+              l10n.exportSleepHeaderHow,
+              l10n.exportSleepHeaderComments,
             ],
             data: filteredSleep.isEmpty
                 ? [
-                    ['NO DATA', '', '', '', '', ''],
+                    [l10n.exportNoData, '', '', '', '', ''],
                   ]
                 : filteredSleep
                       .map(
                         (e) => [
                           dateFormat.format(e.nightDate),
                           e.sleepQuality.toString(),
-                          _getSleepQualityLabel(e.sleepQuality),
+                          _getSleepQualityLabel(l10n, e.sleepQuality),
                           _formatDurationMinutes(e.sleepDurationMinutes),
-                          _getSleepContinuityLabel(e.sleepContinuity),
+                          _getSleepContinuityLabel(l10n, e.sleepContinuity),
                           e.notes ?? '',
                         ],
                       )
@@ -632,7 +795,7 @@ class ExportService {
           pw.SizedBox(height: 24),
 
           pw.Text(
-            'Diario de Medicaciones',
+            l10n.exportPdfSectionMedications,
             style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 10),
@@ -654,18 +817,47 @@ class ExportService {
             cellStyle: const pw.TextStyle(fontSize: 9),
             cellAlignment: pw.Alignment.centerLeft,
             headers: [
-              'Día',
-              'Hora',
-              'Medicamento',
-              'Unidad',
-              'Cantidad',
-              'Nota',
+              l10n.exportMedicationHeaderDay,
+              l10n.exportMedicationHeaderTime,
+              l10n.exportMedicationHeaderMedication,
+              l10n.exportMedicationHeaderUnit,
+              l10n.exportMedicationHeaderQuantity,
+              l10n.exportMedicationHeaderNote,
             ],
             data: medData.isEmpty
                 ? [
-                    ['NO DATA', '', '', '', '', ''],
+                    [l10n.exportNoData, '', '', '', '', ''],
                   ]
                 : medData,
+          ),
+
+          pw.SizedBox(height: 24),
+          pw.Text(
+            l10n.exportPdfSectionDay,
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 10),
+          pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(
+              fontSize: 9,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            cellAlignment: pw.Alignment.centerLeft,
+            headers: [
+              l10n.exportDayHeaderDate,
+              l10n.exportDayHeaderMood,
+              l10n.exportDayHeaderBlocksWalked,
+              l10n.exportDayHeaderWater,
+              l10n.exportDayHeaderDayNotesAbbrev,
+            ],
+            data: dayData.isEmpty
+                ? [
+                    [l10n.exportNoData],
+                  ]
+                : dayData,
           ),
         ],
       ),
@@ -673,16 +865,116 @@ class ExportService {
 
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final path = '${directory.path}/diario_medicamentos_$timestamp.pdf';
+    final path = '${directory.path}/${l10n.exportFileBaseDiary}_$timestamp.pdf';
     final file = File(path);
     await file.writeAsBytes(await doc.save());
 
     return file;
   }
 
-  Future<void> sharePDF({DateTime? startDate, DateTime? endDate}) async {
-    final file = await exportToPDF(startDate: startDate, endDate: endDate);
-    await Share.shareXFiles([XFile(file.path)], text: 'Exportación PDF');
+  Future<void> sharePDF({
+    DateTime? startDate,
+    DateTime? endDate,
+    Locale? locale,
+  }) async {
+    final l10n = _l10nFor(locale);
+    final file = await exportToPDF(
+      startDate: startDate,
+      endDate: endDate,
+      locale: locale,
+    );
+    await Share.shareXFiles([XFile(file.path)], text: l10n.exportSharePdf);
+  }
+
+  Future<List<List<dynamic>>> _buildDayEntriesCsvRows(
+    AppLocalizations l10n, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final rows = await _buildDayEntriesTabularData(
+      l10n,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    final headers = [
+      l10n.exportDayHeaderDate,
+      l10n.exportDayHeaderMood,
+      l10n.exportDayHeaderBlocksWalked,
+      l10n.exportDayHeaderWater,
+      l10n.exportDayHeaderDayNotes,
+    ];
+
+    if (rows.isEmpty) {
+      return [
+        headers,
+        [l10n.exportNoData, ...List.filled(headers.length - 1, '')],
+      ];
+    }
+
+    return [headers, ...rows];
+  }
+
+  Future<List<List<String>>> _buildDayEntriesTabularData(
+    AppLocalizations l10n, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final db = DatabaseHelper.instance;
+    final sqlDb = await db.database;
+    final dateFormat = DateFormat('yyyy-MM-dd');
+
+    final range = _normalizeRange(startDate, endDate);
+    final where = (range == null)
+        ? null
+        : 'entry_date >= ? AND entry_date <= ?';
+    final whereArgs = (range == null)
+        ? null
+        : [
+            _dateOnly(range.start).toIso8601String(),
+            _dateOnly(range.end).toIso8601String(),
+          ];
+
+    final dayRows = await sqlDb.query(
+      'day_entries',
+      where: where,
+      whereArgs: whereArgs,
+      orderBy: 'entry_date ASC',
+    );
+
+    bool nonEmptyText(String? s) => (s ?? '').trim().isNotEmpty;
+
+    final out = <List<String>>[];
+
+    for (final r in dayRows) {
+      final dateStr = r['entry_date'] as String?;
+      if (dateStr == null) continue;
+      final dt = _dateOnly(DateTime.parse(dateStr));
+
+      final mood = r['day_mood'] as int?;
+      final blocksWalked = r['blocks_walked'] as int?;
+      final water = r['water_count'] as int?;
+      final dayNotes = (r['day_notes'] as String?)?.trim();
+
+      // Consideramos como "fila exportable" si hay algo (evita filas vacías creadas por ensureDayEntry).
+      final hasAny =
+          mood != null ||
+          blocksWalked != null ||
+          water != null ||
+          nonEmptyText(dayNotes);
+
+      if (!hasAny) continue;
+
+      out.add([
+        dateFormat.format(dt),
+        mood?.toString() ?? '',
+        blocksWalked?.toString() ?? '',
+        water?.toString() ?? '',
+        dayNotes ?? '',
+      ]);
+    }
+
+    return out;
   }
 
   /// helpers
@@ -703,7 +995,8 @@ class ExportService {
       dayDateById[id] = DateTime.parse(dateStr);
     }
 
-    final events = await db.getAllIntakeEvents();
+    final intakeRepo = IntakeRepository();
+    final events = await intakeRepo.getAllIntakeEvents();
 
     final range = _normalizeRange(startDate, endDate);
 
@@ -728,6 +1021,7 @@ class ExportService {
   }
 
   Future<List<List<String>>> _buildMedicationTableData(
+    AppLocalizations l10n,
     DatabaseHelper db,
     DateFormat dateFormat,
     DateFormat timeFormat, {
@@ -754,13 +1048,17 @@ class ExportService {
       final dayDate = item['dayDate'] as DateTime;
       final event = item['event'] as IntakeEvent;
       final medication = item['medication'];
+      final isGel =
+          medication is Medication && medication.type == MedicationType.gel;
 
       data.add([
         dateFormat.format(dayDate),
         timeFormat.format(event.takenAt),
-        medication?.name ?? 'Medicamento ${event.medicationId}',
+        medication?.name ?? l10n.exportMedicationFallback(event.medicationId),
         medication?.unit ?? '',
-        (event.amountNumerator == null || event.amountDenominator == null)
+        isGel
+            ? l10n.exportMedicationApplication
+            : (event.amountNumerator == null || event.amountDenominator == null)
             ? '—'
             : FractionHelper.fractionToText(
                 event.amountNumerator!,
@@ -773,18 +1071,18 @@ class ExportService {
     return data;
   }
 
-  String _getSleepQualityLabel(int quality) {
+  String _getSleepQualityLabel(AppLocalizations l10n, int quality) {
     switch (quality) {
       case 1:
-        return 'Muy mal';
+        return l10n.exportSleepQualityVeryBad;
       case 2:
-        return 'Mal';
+        return l10n.exportSleepQualityBad;
       case 3:
-        return 'Regular';
+        return l10n.exportSleepQualityOk;
       case 4:
-        return 'Bien';
+        return l10n.exportSleepQualityGood;
       case 5:
-        return 'Muy bien';
+        return l10n.exportSleepQualityVeryGood;
       default:
         return '';
     }

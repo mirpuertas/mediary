@@ -1,9 +1,14 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:io';
+
+import 'package:sqflite/sqflite.dart' as plain_sqflite;
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart';
+
+import 'database_key_service.dart';
 
 import '../models/medication.dart';
 import '../models/sleep_entry.dart';
-import '../models/intake_event.dart';
 import '../models/medication_reminder.dart';
 import '../models/day_entry.dart';
 import '../models/medication_group.dart';
@@ -12,32 +17,397 @@ import '../models/medication_group_reminder.dart';
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static bool _didEnsureSchema = false;
+  static Future<Database>? _opening;
 
-  static const int _schemaVersion = 21;
-  static const int _squashRecreateVersion = 20;
+  static const int _schemaVersion = 31;
+  static const int _squashRecreateVersion = 31;
 
   DatabaseHelper._init();
 
+  static final DatabaseKeyService _keyService = DatabaseKeyService();
+
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('med_journal.db');
-    return _database!;
+    final existing = _database;
+    if (existing != null) {
+      if (!_didEnsureSchema) {
+        await _ensureSchemaUpToDate(existing);
+        _didEnsureSchema = true;
+      }
+      return existing;
+    }
+
+    final inFlight = _opening;
+    if (inFlight != null) {
+      final db = await inFlight;
+      if (!_didEnsureSchema) {
+        await _ensureSchemaUpToDate(db);
+        _didEnsureSchema = true;
+      }
+      return db;
+    }
+
+    final future = _initDB('med_journal.db');
+    _opening = future;
+    try {
+      final db = await future;
+      _database = db;
+      if (!_didEnsureSchema) {
+        await _ensureSchemaUpToDate(db);
+        _didEnsureSchema = true;
+      }
+      return db;
+    } finally {
+      _opening = null;
+    }
+  }
+
+  /// Fuerza una verificación de schema (útil antes de restore/backup).
+  Future<void> ensureLatestSchema() async {
+    final db = await database;
+    await _ensureSchemaUpToDate(db);
+    _didEnsureSchema = true;
   }
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
+    final password = await _keyService.getOrCreateKey();
+
+    // Si hay una DB plaintext en el mismo lugar, migrarla.
+    await _migratePlaintextIfNeeded(
+      dbPath: dbPath,
+      encryptedPath: path,
+      password: password,
+    );
+
     return await openDatabase(
       path,
+      password: password,
       version: _schemaVersion,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
   }
 
+  /// Retorna si la DB está encriptada en reposo.
+  ///
+  /// - `true`: el archivo existe y NO parece una DB SQLite plaintext.
+  /// - `false`: el archivo existe y parece una DB SQLite plaintext.
+  /// - `null`: el archivo no existe todavía.
+  Future<bool?> isDatabaseEncryptedAtRest() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'med_journal.db');
+    final file = File(path);
+    if (!await file.exists()) return null;
+    final isPlaintext = await _isPlaintextSqliteFile(path);
+    return !isPlaintext;
+  }
+
+  Future<void> _migratePlaintextIfNeeded({
+    required String dbPath,
+    required String encryptedPath,
+    required String password,
+  }) async {
+    final encryptedFile = File(encryptedPath);
+    final legacyPath = join(dbPath, 'med_journal_legacy_plain.db');
+    final legacyFile = File(legacyPath);
+
+    // Si una ejecución anterior ya movió la DB plaintext a legacy pero también creó
+    // una DB encriptada, finalizar la migración desde legacy (común después de crashes).
+    if (await legacyFile.exists()) {
+      if (!await encryptedFile.exists()) {
+        await _copyPlainToEncrypted(
+          plainPath: legacyPath,
+          encryptedPath: encryptedPath,
+          password: password,
+          wipeDestination: true,
+        );
+        await legacyFile.delete();
+        return;
+      }
+
+      final encryptedLooksPlaintext = await _isPlaintextSqliteFile(
+        encryptedPath,
+      );
+      if (!encryptedLooksPlaintext) {
+        final empty = await _isEncryptedDbEmpty(encryptedPath, password);
+        if (empty) {
+          await _copyPlainToEncrypted(
+            plainPath: legacyPath,
+            encryptedPath: encryptedPath,
+            password: password,
+            wipeDestination: true,
+          );
+          await legacyFile.delete();
+        }
+        return;
+      }
+      // Si encryptedPath es todavía plaintext y legacy existe, continuar con la migración normal.
+    }
+
+    if (!await encryptedFile.exists()) return;
+
+    final isPlaintext = await _isPlaintextSqliteFile(encryptedPath);
+    if (!isPlaintext) {
+      return;
+    }
+
+    if (await legacyFile.exists()) {
+      try {
+        final legacyStat = await legacyFile.stat();
+        final currentStat = await encryptedFile.stat();
+        final keepCurrent = currentStat.modified.isAfter(legacyStat.modified);
+        if (keepCurrent) {
+          await legacyFile.delete();
+          await encryptedFile.rename(legacyPath);
+        }
+      } catch (_) {
+        // Si falla, mantener la legacy existente.
+      }
+    } else {
+      await encryptedFile.rename(legacyPath);
+    }
+
+    // Remover cualquier archivo restante en la ruta encriptada para que SQLCipher pueda crearlo.
+    if (await File(encryptedPath).exists()) {
+      await File(encryptedPath).delete();
+    }
+
+    try {
+      await _copyPlainToEncrypted(
+        plainPath: legacyPath,
+        encryptedPath: encryptedPath,
+        password: password,
+        wipeDestination: true,
+      );
+
+      // Migración exitosa: eliminar la legacy.
+      if (await legacyFile.exists()) {
+        await legacyFile.delete();
+      }
+    } catch (e) {
+      if (await File(encryptedPath).exists()) {
+        try {
+          await File(encryptedPath).delete();
+        } catch (e) {
+          if (kDebugMode) debugPrint('DatabaseHelper: failed to delete legacy encrypted file: $e');
+        }
+      }
+
+      if (await legacyFile.exists()) {
+        try {
+          await legacyFile.rename(encryptedPath);
+        } catch (e) {
+          if (kDebugMode) debugPrint('DatabaseHelper: failed to rename legacy db file: $e');
+        }
+      }
+
+      rethrow;
+    }
+  }
+
+  Future<bool> _isPlaintextSqliteFile(String path) async {
+    try {
+      final file = File(path);
+      final raf = await file.open(mode: FileMode.read);
+      try {
+        final header = await raf.read(16);
+        // SQLite plaintext comienza con "SQLite format 3\x00".
+        const magic = <int>[
+          0x53,
+          0x51,
+          0x4C,
+          0x69,
+          0x74,
+          0x65,
+          0x20,
+          0x66,
+          0x6F,
+          0x72,
+          0x6D,
+          0x61,
+          0x74,
+          0x20,
+          0x33,
+          0x00,
+        ];
+        if (header.length < magic.length) return false;
+        final bytes = Uint8List.fromList(header);
+        for (var i = 0; i < magic.length; i++) {
+          if (bytes[i] != magic[i]) return false;
+        }
+        return true;
+      } finally {
+        await raf.close();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _copyPlainToEncrypted({
+    required String plainPath,
+    required String encryptedPath,
+    required String password,
+    required bool wipeDestination,
+  }) async {
+    final plainDb = await plain_sqflite.openDatabase(plainPath);
+
+    final encDb = await openDatabase(
+      encryptedPath,
+      password: password,
+      version: _schemaVersion,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+
+    try {
+      final plainTables = await _listUserTables(plainDb);
+
+      // Copiar todas las tablas de plaintext -> encriptado, filtrando columnas para coincidir
+      // con el schema de destino (maneja diferencias de versión).
+      await encDb.transaction((txn) async {
+        await txn.execute('PRAGMA foreign_keys = OFF');
+
+        for (final table in plainTables) {
+          final destColumns = await _getTableColumns(txn, table);
+          if (destColumns.isEmpty) continue;
+
+          if (wipeDestination) {
+            await txn.delete(table);
+          }
+
+          final rows = await plainDb.query(table);
+          for (final row in rows) {
+            final filtered = <String, Object?>{};
+            for (final entry in row.entries) {
+              if (destColumns.contains(entry.key)) {
+                filtered[entry.key] = entry.value;
+              }
+            }
+            if (filtered.isNotEmpty) {
+              await txn.insert(
+                table,
+                filtered,
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            }
+          }
+        }
+
+        await txn.execute('PRAGMA foreign_keys = ON');
+      });
+
+      // Asegurar que el schema esté actualizado para futuras operaciones.
+      await _ensureSchemaUpToDate(encDb);
+    } finally {
+      await plainDb.close();
+      await encDb.close();
+    }
+  }
+
+  Future<List<String>> _listUserTables(plain_sqflite.Database db) async {
+    final rows = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+    );
+    return rows
+        .map((r) => r['name'])
+        .whereType<String>()
+        .where((name) => name != 'android_metadata')
+        .toList(growable: false);
+  }
+
+  Future<Set<String>> _getTableColumns(
+    DatabaseExecutor db,
+    String table,
+  ) async {
+    try {
+      final rows = await db.rawQuery('PRAGMA table_info($table)');
+      return rows.map((r) => r['name']).whereType<String>().toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<bool> _isEncryptedDbEmpty(String path, String password) async {
+    try {
+      final db = await openDatabase(path, password: password);
+      try {
+        final counts = await Future.wait<int>([
+          _tableCount(db, 'medications'),
+          _tableCount(db, 'medication_reminders'),
+          _tableCount(db, 'day_entries'),
+        ]);
+        return counts.every((c) => c == 0);
+      } finally {
+        await db.close();
+      }
+    } catch (_) {
+      // Si no podemos abrirla, tratar como no vacía para evitar acciones destructivas.
+      return false;
+    }
+  }
+
+  Future<int> _tableCount(DatabaseExecutor db, String table) async {
+    try {
+      final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM $table');
+      final value = rows.first['c'];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<void> _createDB(Database db, int version) async {
     await _createSchema(db);
+  }
+
+  Future<void> _ensureSchemaUpToDate(Database db) async {
+    try {
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='day_entries'",
+      );
+      if (tables.isEmpty) return;
+
+      final info = await db.rawQuery('PRAGMA table_info(day_entries)');
+      final cols = <String>{
+        for (final r in info)
+          if (r['name'] is String) (r['name'] as String),
+      };
+
+      var changed = false;
+
+      if (!cols.contains('day_notes')) {
+        await db.execute('ALTER TABLE day_entries ADD COLUMN day_notes TEXT');
+        changed = true;
+      }
+      if (!cols.contains('water_count')) {
+        await db.execute(
+          'ALTER TABLE day_entries ADD COLUMN water_count INTEGER',
+        );
+        changed = true;
+      }
+      if (!cols.contains('blocks_walked')) {
+        await db.execute(
+          'ALTER TABLE day_entries ADD COLUMN blocks_walked INTEGER',
+        );
+        changed = true;
+      }
+
+      final userVersion =
+          Sqflite.firstIntValue(await db.rawQuery('PRAGMA user_version')) ?? 0;
+      if (userVersion < _schemaVersion) {
+        await db.execute('PRAGMA user_version = $_schemaVersion');
+      } else if (changed) {
+        await db.execute('PRAGMA user_version = $_schemaVersion');
+      }
+    } catch (_) {
+      // Best-effort: si falla, dejamos que explote con el error real.
+    }
   }
 
   Future<void> _createSchema(DatabaseExecutor db) async {
@@ -70,7 +440,9 @@ class DatabaseHelper {
         sleep_duration_minutes INTEGER,
         sleep_continuity INTEGER,
         day_mood INTEGER,
-        day_notes TEXT
+        blocks_walked INTEGER,
+        day_notes TEXT,
+        water_count INTEGER
       )
     ''');
 
@@ -152,8 +524,11 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Destructive migration: recrear el schema desde cero.
     if (oldVersion < _squashRecreateVersion) {
       await db.transaction((txn) async {
+        await txn.execute('PRAGMA foreign_keys = OFF');
+
         await txn.execute('DROP TABLE IF EXISTS intake_events');
         await txn.execute('DROP TABLE IF EXISTS medication_group_members');
         await txn.execute('DROP TABLE IF EXISTS medication_group_reminders');
@@ -168,16 +543,13 @@ class DatabaseHelper {
         await txn.execute('DROP TABLE IF EXISTS sleep_entry_medications');
 
         await _createSchema(txn);
+        await txn.execute('PRAGMA foreign_keys = ON');
       });
-    }
-
-    // v21: agrega notas del día (separadas de sleep_notes).
-    if (oldVersion >= _squashRecreateVersion && oldVersion < 21) {
-      await db.execute('ALTER TABLE day_entries ADD COLUMN day_notes TEXT');
+      return;
     }
   }
 
-  /// DAY ENTRIES (source of truth)
+  /// DAY ENTRIES (punto de referencia)
 
   Future<DayEntry> ensureDayEntry(DateTime date) async {
     final db = await database;
@@ -201,51 +573,14 @@ class DatabaseHelper {
       'sleep_duration_minutes': null,
       'sleep_continuity': null,
       'day_mood': null,
+      'blocks_walked': null,
       'day_notes': null,
+      'water_count': null,
     });
     return DayEntry(id: id, entryDate: DateTime.parse(dateOnly));
   }
 
-  Future<DayEntry?> getDayEntryByDate(DateTime date) async {
-    final db = await database;
-    final dateOnly = DateTime(
-      date.year,
-      date.month,
-      date.day,
-    ).toIso8601String();
-
-    final rows = await db.query(
-      'day_entries',
-      where: 'entry_date = ?',
-      whereArgs: [dateOnly],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return DayEntry.fromMap(rows.first);
-  }
-
-  Future<void> saveSleepForDay(
-    DateTime date,
-    int? quality,
-    String? notes, {
-    int? sleepDurationMinutes,
-    int? sleepContinuity,
-  }) async {
-    final db = await database;
-    final day = await ensureDayEntry(date);
-
-    await db.update(
-      'day_entries',
-      {
-        'sleep_quality': quality,
-        'sleep_notes': notes,
-        'sleep_duration_minutes': sleepDurationMinutes,
-        'sleep_continuity': sleepContinuity,
-      },
-      where: 'id = ?',
-      whereArgs: [day.id],
-    );
-  }
+  /// SLEEP
 
   Future<SleepEntry?> getSleepFromDay(DateTime date) async {
     final day = await getDayEntryByDate(date);
@@ -315,7 +650,7 @@ class DatabaseHelper {
     return counts;
   }
 
-  Future<int?> getDayMoodByDate(DateTime date) async {
+  Future<DayEntry?> getDayEntryByDate(DateTime date) async {
     final db = await database;
     final dateOnly = DateTime(
       date.year,
@@ -325,165 +660,42 @@ class DatabaseHelper {
 
     final rows = await db.query(
       'day_entries',
-      columns: ['day_mood'],
       where: 'entry_date = ?',
       whereArgs: [dateOnly],
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    return rows.first['day_mood'] as int?;
+    return DayEntry.fromMap(rows.first);
   }
 
-  Future<String?> getDayNotesByDate(DateTime date) async {
-    final db = await database;
-    final dateOnly = DateTime(
-      date.year,
-      date.month,
-      date.day,
-    ).toIso8601String();
-
-    final rows = await db.query(
-      'day_entries',
-      columns: ['day_notes'],
-      where: 'entry_date = ?',
-      whereArgs: [dateOnly],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return rows.first['day_notes'] as String?;
-  }
-
-  Future<void> saveDayMoodForDay(DateTime date, int? mood) async {
+  Future<void> saveSleepForDay(
+    DateTime date,
+    int? quality,
+    String? notes, {
+    int? sleepDurationMinutes,
+    int? sleepContinuity,
+  }) async {
     final db = await database;
     final day = await ensureDayEntry(date);
 
     await db.update(
       'day_entries',
-      {'day_mood': mood},
+      {
+        'sleep_quality': quality,
+        'sleep_notes': notes,
+        'sleep_duration_minutes': sleepDurationMinutes,
+        'sleep_continuity': sleepContinuity,
+      },
       where: 'id = ?',
       whereArgs: [day.id],
     );
   }
-
-  Future<void> saveDayNotesForDay(DateTime date, String? notes) async {
-    final db = await database;
-    final day = await ensureDayEntry(date);
-
-    await db.update(
-      'day_entries',
-      {'day_notes': notes},
-      where: 'id = ?',
-      whereArgs: [day.id],
-    );
-  }
-
-  Future<Map<DateTime, int>> getDayMoodsBetween(
-    DateTime start,
-    DateTime end,
-  ) async {
-    final db = await database;
-
-    final startOnly = DateTime(
-      start.year,
-      start.month,
-      start.day,
-    ).toIso8601String();
-    final endOnly = DateTime(end.year, end.month, end.day).toIso8601String();
-
-    final rows = await db.query(
-      'day_entries',
-      columns: ['entry_date', 'day_mood'],
-      where: 'entry_date >= ? AND entry_date <= ? AND day_mood IS NOT NULL',
-      whereArgs: [startOnly, endOnly],
-    );
-
-    final result = <DateTime, int>{};
-    for (final row in rows) {
-      final rawDate = row['entry_date'] as String?;
-      final mood = row['day_mood'] as int?;
-      if (rawDate == null || mood == null) continue;
-
-      final dt = DateTime.parse(rawDate);
-      result[DateTime(dt.year, dt.month, dt.day)] = mood;
-    }
-    return result;
-  }
-
-  Future<Map<DateTime, int>> getSleepQualitiesBetween(
-    DateTime start,
-    DateTime end,
-  ) async {
-    final db = await database;
-
-    final startOnly = DateTime(
-      start.year,
-      start.month,
-      start.day,
-    ).toIso8601String();
-    final endOnly = DateTime(end.year, end.month, end.day).toIso8601String();
-
-    final rows = await db.query(
-      'day_entries',
-      columns: ['entry_date', 'sleep_quality'],
-      where:
-          'entry_date >= ? AND entry_date <= ? AND sleep_quality IS NOT NULL',
-      whereArgs: [startOnly, endOnly],
-    );
-
-    final result = <DateTime, int>{};
-    for (final row in rows) {
-      final rawDate = row['entry_date'] as String?;
-      final quality = row['sleep_quality'] as int?;
-      if (rawDate == null || quality == null) continue;
-
-      final dt = DateTime.parse(rawDate);
-      result[DateTime(dt.year, dt.month, dt.day)] = quality;
-    }
-    return result;
-  }
-
-  Future<void> deleteFullDayRecordByDate(DateTime date) async {
-    final db = await database;
-    final dateOnly = DateTime(
-      date.year,
-      date.month,
-      date.day,
-    ).toIso8601String();
-
-    await db.transaction((txn) async {
-      final rows = await txn.query(
-        'day_entries',
-        columns: ['id'],
-        where: 'entry_date = ?',
-        whereArgs: [dateOnly],
-        limit: 1,
-      );
-
-      final dayEntryId = rows.isNotEmpty ? (rows.first['id'] as int) : null;
-
-      if (dayEntryId != null) {
-        await txn.delete(
-          'intake_events',
-          where: 'day_entry_id = ?',
-          whereArgs: [dayEntryId],
-        );
-
-        await txn.delete(
-          'day_entries',
-          where: 'id = ?',
-          whereArgs: [dayEntryId],
-        );
-      }
-    });
-  }
-
-  /// SLEEP
 
   Future<SleepEntry?> getSleepEntryByDate(DateTime date) async {
     return getSleepFromDay(date);
   }
 
-  // Compat: el nombre histórico se mantiene, pero la fuente es day_entries.
+  // Compatibilidad: el nombre histórico se mantiene, pero la fuente es day_entries.
   Future<SleepEntry> saveSleepEntry(SleepEntry entry) async {
     final dateOnly = DateTime(
       entry.nightDate.year,
@@ -508,114 +720,6 @@ class DatabaseHelper {
 
   Future<Map<String, int>> getSleepEntriesCountByMonth() async {
     return getSleepDaysCountByMonthFromDayEntries();
-  }
-
-  /// INTAKE EVENTS
-
-  Future<IntakeEvent> saveIntakeEvent(IntakeEvent event) async {
-    final db = await database;
-    final id = await db.insert('intake_events', event.toMap());
-    return event.copyWith(id: id);
-  }
-
-  Future<List<IntakeEvent>> getIntakeEventsByDay(int dayEntryId) async {
-    final db = await database;
-    final result = await db.query(
-      'intake_events',
-      where: 'day_entry_id = ?',
-      whereArgs: [dayEntryId],
-      orderBy: 'taken_at ASC',
-    );
-    return result.map((map) => IntakeEvent.fromMap(map)).toList();
-  }
-
-  Future<List<IntakeEvent>> getAllIntakeEvents() async {
-    final db = await database;
-    final result = await db.query('intake_events', orderBy: 'taken_at DESC');
-    return result.map((map) => IntakeEvent.fromMap(map)).toList();
-  }
-
-  Future<int> updateIntakeEvent(IntakeEvent event) async {
-    final db = await database;
-    return db.update(
-      'intake_events',
-      event.toMap(),
-      where: 'id = ?',
-      whereArgs: [event.id],
-    );
-  }
-
-  Future<int> deleteIntakeEvent(int id) async {
-    final db = await database;
-    return await db.delete('intake_events', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<int> deleteIntakeEventsByDay(int dayEntryId) async {
-    final db = await database;
-    return await db.delete(
-      'intake_events',
-      where: 'day_entry_id = ?',
-      whereArgs: [dayEntryId],
-    );
-  }
-
-  Future<Map<DateTime, int>> getIntakeCountsBetween(
-    DateTime start,
-    DateTime end,
-  ) async {
-    final db = await database;
-
-    final startOnly = DateTime(
-      start.year,
-      start.month,
-      start.day,
-    ).toIso8601String();
-    final endOnly = DateTime(end.year, end.month, end.day).toIso8601String();
-
-    final rows = await db.rawQuery(
-      '''
-      SELECT d.entry_date as entry_date, COUNT(i.id) as cnt
-      FROM day_entries d
-      JOIN intake_events i ON i.day_entry_id = d.id
-      WHERE d.entry_date >= ? AND d.entry_date <= ?
-      GROUP BY d.entry_date
-      HAVING cnt > 0
-    ''',
-      [startOnly, endOnly],
-    );
-
-    final result = <DateTime, int>{};
-    for (final row in rows) {
-      final raw = row['entry_date'] as String?;
-      final cnt = row['cnt'] as int?;
-      if (raw == null || cnt == null) continue;
-
-      final dt = DateTime.parse(raw);
-      result[DateTime(dt.year, dt.month, dt.day)] = cnt;
-    }
-    return result;
-  }
-
-  Future<int?> getIntakeCountByDate(DateTime date) async {
-    final db = await database;
-    final dateOnly = DateTime(
-      date.year,
-      date.month,
-      date.day,
-    ).toIso8601String();
-
-    final rows = await db.rawQuery(
-      '''
-      SELECT COUNT(i.id) as cnt
-      FROM day_entries d
-      LEFT JOIN intake_events i ON i.day_entry_id = d.id
-      WHERE d.entry_date = ?
-    ''',
-      [dateOnly],
-    );
-
-    if (rows.isEmpty) return 0;
-    return (rows.first['cnt'] as int?) ?? 0;
   }
 
   /// GROUPS
@@ -874,6 +978,12 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<List<DayEntry>> getAllDayEntries() async {
+    final db = await database;
+    final result = await db.query('day_entries');
+    return result.map((m) => DayEntry.fromMap(m)).toList();
   }
 
   Future<int> unarchiveMedication(int id) async {

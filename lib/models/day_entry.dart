@@ -6,7 +6,10 @@ class DayEntry {
   final int? sleepDurationMinutes;
   final int? sleepContinuity;
   final int? dayMood;
+  final int? blocksWalked;
   final String? dayNotes;
+
+  final int? waterCount;
 
   DayEntry({
     this.id,
@@ -16,7 +19,9 @@ class DayEntry {
     this.sleepDurationMinutes,
     this.sleepContinuity,
     this.dayMood,
+    this.blocksWalked,
     this.dayNotes,
+    this.waterCount,
   });
 
   DateTime get dateOnly =>
@@ -30,7 +35,9 @@ class DayEntry {
     'sleep_duration_minutes': sleepDurationMinutes,
     'sleep_continuity': sleepContinuity,
     'day_mood': dayMood,
+    'blocks_walked': blocksWalked,
     'day_notes': dayNotes,
+    'water_count': waterCount,
   };
 
   factory DayEntry.fromMap(Map<String, dynamic> map) => DayEntry(
@@ -41,7 +48,9 @@ class DayEntry {
     sleepDurationMinutes: map['sleep_duration_minutes'] as int?,
     sleepContinuity: map['sleep_continuity'] as int?,
     dayMood: map['day_mood'] as int?,
+    blocksWalked: map['blocks_walked'] as int?,
     dayNotes: map['day_notes'] as String?,
+    waterCount: map['water_count'] as int?,
   );
 
   DayEntry copyWith({
@@ -52,7 +61,9 @@ class DayEntry {
     int? sleepDurationMinutes,
     int? sleepContinuity,
     int? dayMood,
+    int? blocksWalked,
     String? dayNotes,
+    int? waterCount,
   }) {
     return DayEntry(
       id: id ?? this.id,
@@ -62,7 +73,9 @@ class DayEntry {
       sleepDurationMinutes: sleepDurationMinutes ?? this.sleepDurationMinutes,
       sleepContinuity: sleepContinuity ?? this.sleepContinuity,
       dayMood: dayMood ?? this.dayMood,
+      blocksWalked: blocksWalked ?? this.blocksWalked,
       dayNotes: dayNotes ?? this.dayNotes,
+      waterCount: waterCount ?? this.waterCount,
     );
   }
 }

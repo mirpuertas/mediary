@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/fraction_helper.dart';
+import '../l10n/l10n.dart';
+import '../ui/app_theme_tokens.dart';
 
 class FractionResult {
   final int numerator;
@@ -11,20 +13,20 @@ class FractionResult {
 class FractionPickerDialog extends StatefulWidget {
   final int initialNumerator;
   final int initialDenominator;
-  final String title;
+  final String? title;
 
   const FractionPickerDialog({
     super.key,
     required this.initialNumerator,
     required this.initialDenominator,
-    this.title = 'Cantidad',
+    this.title,
   });
 
   static Future<FractionResult?> show(
     BuildContext context, {
     required int initialNumerator,
     required int initialDenominator,
-    String title = 'Cantidad',
+    String? title,
   }) async {
     return await showDialog<FractionResult>(
       context: context,
@@ -107,6 +109,7 @@ class _FractionPickerDialogState extends State<FractionPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     int previewNum = 0;
     int previewDen = 1;
     _calculateImproperFraction(_whole, _selectedFrac, (n, d) {
@@ -116,14 +119,14 @@ class _FractionPickerDialogState extends State<FractionPickerDialog> {
     final previewText = FractionHelper.fractionToText(previewNum, previewDen);
 
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(widget.title ?? l10n.fractionPickerTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<int>(
             initialValue: _whole,
-            decoration: const InputDecoration(
-              labelText: 'Enteros',
+            decoration: InputDecoration(
+              labelText: l10n.fractionPickerWholeLabel,
               border: OutlineInputBorder(),
             ),
             items: List.generate(11, (i) => i).map((n) {
@@ -139,12 +142,12 @@ class _FractionPickerDialogState extends State<FractionPickerDialog> {
 
           DropdownButtonFormField<String>(
             initialValue: _selectedFrac,
-            decoration: const InputDecoration(
-              labelText: 'Fracción',
+            decoration: InputDecoration(
+              labelText: l10n.fractionPickerFractionLabel,
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(value: '0', child: Text('0 (ninguna)')),
+              DropdownMenuItem(value: '0', child: Text('0')),
               DropdownMenuItem(value: '1/4', child: Text('¼')),
               DropdownMenuItem(value: '1/2', child: Text('½')),
               DropdownMenuItem(value: '3/4', child: Text('¾')),
@@ -155,27 +158,39 @@ class _FractionPickerDialogState extends State<FractionPickerDialog> {
               });
             },
           ),
+          if (_selectedFrac == '0') ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l10n.fractionPickerNoFractionSelected,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.neutralColors.grey700,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: context.statusColors.infoContainer,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Preview: ',
+                Text(
+                  '${l10n.fractionPickerPreviewLabel} ',
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),
                 Text(
                   previewText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+                    color: context.statusColors.info,
                   ),
                 ),
               ],
@@ -186,7 +201,7 @@ class _FractionPickerDialogState extends State<FractionPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
+          child: Text(l10n.commonCancel),
         ),
         ElevatedButton(
           onPressed: () {
@@ -195,7 +210,7 @@ class _FractionPickerDialogState extends State<FractionPickerDialog> {
               FractionResult(numerator: previewNum, denominator: previewDen),
             );
           },
-          child: const Text('Aceptar'),
+          child: Text(l10n.commonAccept),
         ),
       ],
     );

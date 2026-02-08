@@ -3,6 +3,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../l10n/l10n.dart';
+
 // NOTIFICACIONES
 Future<bool> ensureNotificationPermission(BuildContext context) async {
   final status = await Permission.notification.status;
@@ -14,19 +16,16 @@ Future<bool> ensureNotificationPermission(BuildContext context) async {
 
   // Mostrar popup si sigue denegado
   if (context.mounted) {
+    final l10n = context.l10n;
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Notificaciones desactivadas'),
-        content: const Text(
-          'Para que los recordatorios funcionen, activá las notificaciones en '
-          'Ajustes del sistema.\n\n'
-          'Esto permite mostrar avisos en la hora programada.',
-        ),
+        title: Text(l10n.permissionsNotificationsDisabledTitle),
+        content: Text(l10n.permissionsNotificationsDisabledBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () async {
@@ -35,7 +34,7 @@ Future<bool> ensureNotificationPermission(BuildContext context) async {
                 Navigator.pop(context);
               }
             },
-            child: const Text('Abrir Ajustes'),
+            child: Text(l10n.settingsOpenSettings),
           ),
         ],
       ),
@@ -65,19 +64,16 @@ Future<bool> ensureExactAlarmPermission(BuildContext context) async {
 
   // Si sigue denegado, guiar al usuario
   if (context.mounted) {
+    final l10n = context.l10n;
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Permitir alarmas exactas'),
-        content: const Text(
-          'Este recordatorio necesita sonar a la hora exacta.\n\n'
-          'Activá "Alarmas y recordatorios" para esta app. '
-          'Si no lo activás, el aviso puede llegar con demora.',
-        ),
+        title: Text(l10n.permissionsExactAlarmsTitle),
+        content: Text(l10n.permissionsExactAlarmsBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Ahora no'),
+            child: Text(l10n.commonNotNow),
           ),
           TextButton(
             onPressed: () async {
@@ -86,7 +82,7 @@ Future<bool> ensureExactAlarmPermission(BuildContext context) async {
                 Navigator.pop(context);
               }
             },
-            child: const Text('Abrir Ajustes'),
+            child: Text(l10n.settingsOpenSettings),
           ),
         ],
       ),
@@ -105,19 +101,18 @@ Future<bool> checkBatteryRestrictions(BuildContext context) async {
 
   if (sospechosos.contains(info.manufacturer.toLowerCase())) {
     if (context.mounted) {
+      final l10n = context.l10n;
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Recomendación de batería'),
+          title: Text(l10n.permissionsBatteryRecommendationTitle),
           content: Text(
-            'Este equipo (${info.manufacturer}) a veces restringe apps en segundo plano.\n\n'
-            'Si tus notificaciones no llegan, desactivá la optimización de batería para esta app:\n\n'
-            'Ajustes → Batería → Sin restricciones / No optimizar',
+            l10n.permissionsBatteryRecommendationBody(info.manufacturer),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Entendido'),
+              child: Text(l10n.commonUnderstood),
             ),
           ],
         ),

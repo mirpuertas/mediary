@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:ui' show DartPluginRegistrant;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:med_journal/l10n/l10n.dart';
+import 'package:med_journal/l10n/l10n_lookup.dart';
 
 import '../app/navigation.dart';
 import '../models/intake_event.dart';
@@ -14,9 +18,11 @@ import '../models/medication.dart';
 import '../models/medication_reminder.dart';
 import '../models/medication_group_reminder.dart';
 import '../models/medication_group.dart';
-import '../screens/daily_entry_screen.dart';
-import '../screens/quick_intake_screen.dart';
+import '../features/daily_entry/presentation/screens/daily_entry_screen.dart';
+import '../features/medication/presentation/screens/quick_intake_screen.dart';
+import '../features/medication/data/intake_repository.dart';
 import 'database_helper.dart';
+import 'error_logger.dart';
 
 class NotificationService {
   static final NotificationService instance = NotificationService._init();
@@ -25,16 +31,16 @@ class NotificationService {
 
   NotificationService._init();
 
+  void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint(message);
+  }
+
   // Canales
   static const String _dailyChannelId = 'daily_reminder_v2';
-  static const String _dailyChannelName = 'Recordatorio diario';
-  static const String _dailyChannelDescription =
-      'Recordatorio para registrar el sueño diariamente';
-
   static const String _medChannelId = 'medication_reminders_v2';
-  static const String _medChannelName = 'Recordatorios de medicación';
-  static const String _medChannelDescription =
-      'Alarmas para tomar medicamentos';
+
+  AppLocalizations get _l10n => lookupL10n();
 
   // IDs one-shot (snooze) para NO pisar schedules recurrentes
   static const int _snoozeIdOffset = 9000000;
@@ -70,6 +76,15 @@ class NotificationService {
 
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
+    try {
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+      _log("📍 Local timezone set to: $timeZoneName");
+    } catch (e) {
+      _log(
+        "⚠️ Could not set local timezone. Defaulting to UTC/Local. Error: $e",
+      );
+    }
 
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
@@ -89,20 +104,20 @@ class NotificationService {
 
     if (android != null) {
       await android.createNotificationChannel(
-        const AndroidNotificationChannel(
+        AndroidNotificationChannel(
           _dailyChannelId,
-          _dailyChannelName,
-          description: _dailyChannelDescription,
+          _l10n.notificationsDailyChannelName,
+          description: _l10n.notificationsDailyChannelDescription,
           importance: Importance.high,
           playSound: true,
         ),
       );
 
       await android.createNotificationChannel(
-        const AndroidNotificationChannel(
+        AndroidNotificationChannel(
           _medChannelId,
-          _medChannelName,
-          description: _medChannelDescription,
+          _l10n.notificationsMedicationChannelName,
+          description: _l10n.notificationsMedicationChannelDescription,
           importance: Importance.max,
           playSound: true,
         ),
@@ -110,10 +125,14 @@ class NotificationService {
     }
   }
 
-  // En background, Android puede levantar un isolate "frío".
-  // Re-inicializamos timezones + plugin.
   Future<void> ensureInitializedForBackground() async {
     tz_data.initializeTimeZones();
+    try {
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    } catch (e) {
+      _log("⚠️ Background check: Could not set local timezone: $e");
+    }
 
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
@@ -191,6 +210,8 @@ class NotificationService {
 
   Future<List<String>> consumePendingCompletes() async {
     final prefs = await SharedPreferences.getInstance();
+    // Reload to get values written by background notification actions
+    await prefs.reload();
     final raw = prefs.getString(_pendingCompletesKey);
 
     if (raw == null || raw.isEmpty) return <String>[];
@@ -213,10 +234,9 @@ class NotificationService {
     return payloads;
   }
 
-  // Igual que [consumePendingCompletes] pero preserva el timestamp
-  // original (cuando el usuario tocó el botón en la notificación).
   Future<List<Map<String, dynamic>>> consumePendingCompletesDetailed() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final raw = prefs.getString(_pendingCompletesKey);
 
     if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
@@ -429,7 +449,7 @@ class NotificationService {
     return result;
   }
 
-  /// HANDLER (FOREGROUND)
+  /// HANDLER
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -459,7 +479,6 @@ class NotificationService {
       final data = jsonDecode(payload) as Map<String, dynamic>;
 
       // Si fue una notificación pospuesta, al interactuar la sacamos de la lista
-      // (evita snoozes "fantasma" en Home y ayuda a evitar alarmas colgadas).
       await _removeSnoozedByNotificationId(response.id);
 
       if (data['type'] == 'sleep') {
@@ -468,7 +487,7 @@ class NotificationService {
         if (navigatorKey.currentState != null) {
           navigatorKey.currentState!.push(
             MaterialPageRoute(
-              builder: (_) => DailyEntryScreen(selectedDate: date),
+              builder: (_) => DailyEntryScreen.withProvider(selectedDate: date),
             ),
           );
         } else {
@@ -570,18 +589,22 @@ class NotificationService {
       } else {
         await storePendingOpen(payload);
       }
-    } catch (e) {
-      debugPrint('Error al procesar notificación: $e');
+    } catch (e, stackTrace) {
+      ErrorLogger.instance.logNotificationError(
+        e,
+        stackTrace: stackTrace,
+        action: 'Process notification tap',
+      );
     }
   }
 
   /// DETAILS
 
   AndroidNotificationDetails _dailyReminderAndroidDetails() {
-    return const AndroidNotificationDetails(
+    return AndroidNotificationDetails(
       _dailyChannelId,
-      _dailyChannelName,
-      channelDescription: _dailyChannelDescription,
+      _l10n.notificationsDailyChannelName,
+      channelDescription: _l10n.notificationsDailyChannelDescription,
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
@@ -597,9 +620,9 @@ class NotificationService {
   }) {
     final actions = <AndroidNotificationAction>[
       if (showChoose)
-        const AndroidNotificationAction(
+        AndroidNotificationAction(
           'open',
-          '📝 Elegir',
+          _l10n.notificationsActionChoose,
           showsUserInterface: true,
         ),
       AndroidNotificationAction(
@@ -607,17 +630,17 @@ class NotificationService {
         completeLabel,
         showsUserInterface: completeShowsUserInterface,
       ),
-      const AndroidNotificationAction(
+      AndroidNotificationAction(
         'snooze',
-        '⏰ Posponer 5 min',
+        _l10n.notificationsActionSnooze5min,
         showsUserInterface: false,
       ),
     ];
 
     return AndroidNotificationDetails(
       _medChannelId,
-      _medChannelName,
-      channelDescription: _medChannelDescription,
+      _l10n.notificationsMedicationChannelName,
+      channelDescription: _l10n.notificationsMedicationChannelDescription,
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,
@@ -626,6 +649,15 @@ class NotificationService {
       category: AndroidNotificationCategory.alarm,
       actions: actions,
     );
+  }
+
+  bool _canCompleteInBackgroundForMedication(Medication? medication) {
+    if (medication == null) return false;
+    if (medication.type == MedicationType.gel) return true;
+
+    final num = medication.defaultDoseNumerator;
+    final den = medication.defaultDoseDenominator;
+    return num != null && den != null && num > 0 && den > 0;
   }
 
   /// ACTIONS
@@ -654,10 +686,9 @@ class NotificationService {
       medicationId,
     );
 
-    final num = medication?.defaultDoseNumerator;
-    final den = medication?.defaultDoseDenominator;
-    final canCompleteInBackground =
-        num != null && den != null && num > 0 && den > 0;
+    final canCompleteInBackground = _canCompleteInBackgroundForMedication(
+      medication,
+    );
 
     final snoozeId = _makeSnoozeNotificationId(
       reminderId: reminderId,
@@ -674,13 +705,15 @@ class NotificationService {
 
     await _notifications.zonedSchedule(
       snoozeId,
-      '💊 Recordatorio (pospuesto)',
-      'Tomar ${medication?.name ?? "medicamento"}',
+      _l10n.notificationsSnoozedTitle,
+      _l10n.notificationsTakeMedicationBody(
+        medication?.name ?? _l10n.notificationsMedicationFallbackName,
+      ),
       scheduledDate,
       NotificationDetails(
         android: _medicationAndroidDetails(
           showChoose: !canCompleteInBackground,
-          completeLabel: '✅ Ya tomé',
+          completeLabel: _l10n.notificationsActionCompleteTaken,
           completeShowsUserInterface: !canCompleteInBackground,
         ),
       ),
@@ -705,13 +738,13 @@ class NotificationService {
 
     await _notifications.zonedSchedule(
       snoozeId,
-      '💊 Recordatorio (pospuesto)',
-      'Tocar para registrar',
+      _l10n.notificationsSnoozedTitle,
+      _l10n.notificationsTapToLogBody,
       scheduledDate,
       NotificationDetails(
         android: _medicationAndroidDetails(
           showChoose: true,
-          completeLabel: '✅ Tomé todo',
+          completeLabel: _l10n.notificationsActionCompleteAllTaken,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -735,27 +768,31 @@ class NotificationService {
     final db = DatabaseHelper.instance;
     final medication = await db.getMedication(medicationId);
 
+    final isGel = medication?.type == MedicationType.gel;
     final num = medication?.defaultDoseNumerator;
     final den = medication?.defaultDoseDenominator;
 
     final hasValidDefaultDose =
         num != null && den != null && num > 0 && den > 0;
 
-    final amountNumerator = hasValidDefaultDose ? num : null;
-    final amountDenominator = hasValidDefaultDose ? den : null;
+    final amountNumerator = (hasValidDefaultDose && !isGel) ? num : null;
+    final amountDenominator = (hasValidDefaultDose && !isGel) ? den : null;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dayEntry = await db.ensureDayEntry(today);
 
-    await db.saveIntakeEvent(
+    final intakeRepo = IntakeRepository();
+    await intakeRepo.saveIntakeEvent(
       IntakeEvent(
         dayEntryId: dayEntry.id!,
         medicationId: medicationId,
         takenAt: now,
         amountNumerator: amountNumerator,
         amountDenominator: amountDenominator,
-        note: 'Registrado automáticamente',
+        note: isGel
+            ? _l10n.notificationsAutoLoggedWithApplication
+            : _l10n.notificationsAutoLogged,
       ),
     );
 
@@ -782,22 +819,26 @@ class NotificationService {
 
     for (final medicationId in medicationIds) {
       final medication = await db.getMedication(medicationId);
+      final isGel = medication?.type == MedicationType.gel;
       final num = medication?.defaultDoseNumerator;
       final den = medication?.defaultDoseDenominator;
       final hasValidDefaultDose =
           num != null && den != null && num > 0 && den > 0;
 
-      final amountNumerator = hasValidDefaultDose ? num : null;
-      final amountDenominator = hasValidDefaultDose ? den : null;
+      final amountNumerator = (hasValidDefaultDose && !isGel) ? num : null;
+      final amountDenominator = (hasValidDefaultDose && !isGel) ? den : null;
 
-      await db.saveIntakeEvent(
+      final intakeRepo = IntakeRepository();
+      await intakeRepo.saveIntakeEvent(
         IntakeEvent(
           dayEntryId: dayEntry.id!,
           medicationId: medicationId,
           takenAt: now,
           amountNumerator: amountNumerator,
           amountDenominator: amountDenominator,
-          note: 'Registrado automáticamente',
+          note: isGel
+              ? _l10n.notificationsAutoLoggedWithApplication
+              : _l10n.notificationsAutoLogged,
         ),
       );
     }
@@ -811,6 +852,22 @@ class NotificationService {
     required int hour,
     required int minute,
   }) async {
+    _log('🕒 Scheduling daily sleep reminder for $hour:$minute');
+
+    try {
+      final canSchedule = await Permission.scheduleExactAlarm.isGranted;
+      _log('📱 Can schedule exact alarms: $canSchedule');
+      if (!canSchedule) {
+        _log('⚠️ Exact alarm permission not granted. Requesting...');
+        final status = await Permission.scheduleExactAlarm.request();
+        _log(
+          '📱 Exact alarm permission after request: ${status.isGranted}',
+        );
+      }
+    } catch (e) {
+      _log('⚠️ Error checking exact alarm permission: $e');
+    }
+
     await _notifications.cancel(0);
 
     final now = DateTime.now();
@@ -827,6 +884,8 @@ class NotificationService {
     }
 
     final scheduledDate = tz.TZDateTime.from(scheduledDateTime, tz.local);
+    _log('🕒 Scheduled date (local): $scheduledDate');
+    _log('🕒 Current date (local): ${tz.TZDateTime.now(tz.local)}');
 
     final payload = jsonEncode({
       'type': 'sleep',
@@ -834,21 +893,62 @@ class NotificationService {
       'date': _formatDateOnly(scheduledDateTime),
     });
 
-    await _notifications.zonedSchedule(
-      0,
-      '🌙 Registro de sueño',
-      '¿Cómo dormiste anoche? Registrá tu sueño',
-      scheduledDate,
-      NotificationDetails(android: _dailyReminderAndroidDetails()),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      payload: payload,
-    );
+    try {
+      await _notifications.zonedSchedule(
+        0,
+        _l10n.notificationsDailySleepTitle,
+        _l10n.notificationsDailySleepBody,
+        scheduledDate,
+        NotificationDetails(android: _dailyReminderAndroidDetails()),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: payload,
+      );
+      _log('✅ Daily sleep reminder scheduled successfully');
+
+      if (kDebugMode) {
+        final pendingNotifications = await _notifications
+            .pendingNotificationRequests();
+        _log('📋 Total pending notifications: ${pendingNotifications.length}');
+        final dailyNotif = pendingNotifications
+            .where((n) => n.id == 0)
+            .toList();
+        if (dailyNotif.isNotEmpty) {
+          _log('✅ Daily notification (ID=0) confirmed in pending list');
+        } else {
+          _log('❌ Daily notification (ID=0) NOT found in pending list!');
+        }
+      }
+    } catch (e) {
+      _log('❌ Error scheduling daily reminder: $e');
+      rethrow;
+    }
   }
 
   Future<void> cancelDailyReminder() async {
     await _notifications.cancel(0);
+  }
+
+  /// TEST NOTIFICATION 
+  Future<void> showTestNotification() async {
+    _log('🧪 Sending immediate test notification');
+
+    try {
+      await _notifications.show(
+        99999, // ID único para prueba
+        _l10n.notificationsTestTitle,
+        _l10n.notificationsTestBody,
+        NotificationDetails(android: _dailyReminderAndroidDetails()),
+        payload: jsonEncode({'type': 'test'}),
+      );
+
+      _log('✅ Test notification sent');
+    } catch (e) {
+      _log('❌ Error sending test notification: $e');
+      rethrow;
+    }
   }
 
   /// PERMISSIONS
@@ -864,6 +964,15 @@ class NotificationService {
 
     if (android != null) {
       final granted = await android.requestNotificationsPermission();
+
+      // Request exact alarm permission para Android 12+ (API 31+)
+      try {
+        final exactAlarmStatus = await Permission.scheduleExactAlarm.request();
+        _log('📱 Exact alarm permission: ${exactAlarmStatus.isGranted}');
+      } catch (e) {
+        _log('⚠️ Could not request exact alarm permission: $e');
+      }
+
       return granted ?? false;
     }
     return false;
@@ -881,7 +990,7 @@ class NotificationService {
     Medication medication,
   ) async {
     if (reminder.id == null) {
-      throw Exception('El recordatorio debe tener un ID de base de datos');
+      throw Exception(_l10n.notificationsErrorReminderMissingId);
     }
 
     final payload = jsonEncode({
@@ -896,10 +1005,9 @@ class NotificationService {
         ? AndroidScheduleMode.exactAllowWhileIdle
         : AndroidScheduleMode.inexactAllowWhileIdle;
 
-    final num = medication.defaultDoseNumerator;
-    final den = medication.defaultDoseDenominator;
-    final canCompleteInBackground =
-        num != null && den != null && num > 0 && den > 0;
+    final canCompleteInBackground = _canCompleteInBackgroundForMedication(
+      medication,
+    );
 
     if (reminder.isDaily) {
       final scheduledDate = _nextInstanceOfTime(
@@ -909,13 +1017,13 @@ class NotificationService {
 
       await _notifications.zonedSchedule(
         reminder.id!,
-        '💊 Recordatorio de medicación',
-        'Tomar ${medication.name}',
+        _l10n.notificationsMedicationTitle,
+        _l10n.notificationsTakeMedicationBody(medication.name),
         scheduledDate,
         NotificationDetails(
           android: _medicationAndroidDetails(
             showChoose: !canCompleteInBackground,
-            completeLabel: '✅ Ya tomé',
+            completeLabel: _l10n.notificationsActionCompleteTaken,
             completeShowsUserInterface: false,
           ),
         ),
@@ -937,13 +1045,13 @@ class NotificationService {
 
         await _notifications.zonedSchedule(
           notificationId,
-          '💊 Recordatorio de medicación',
-          'Tomar ${medication.name}',
+          _l10n.notificationsMedicationTitle,
+          _l10n.notificationsTakeMedicationBody(medication.name),
           scheduledDate,
           NotificationDetails(
             android: _medicationAndroidDetails(
               showChoose: !canCompleteInBackground,
-              completeLabel: '✅ Ya tomé',
+              completeLabel: _l10n.notificationsActionCompleteTaken,
               completeShowsUserInterface: false,
             ),
           ),
@@ -971,7 +1079,7 @@ class NotificationService {
     required List<Medication> medicationsSnapshot,
   }) async {
     if (reminder.id == null) {
-      throw Exception('El recordatorio de grupo debe tener un ID de DB');
+      throw Exception(_l10n.notificationsErrorGroupReminderMissingId);
     }
 
     final medicationIds = medicationsSnapshot
@@ -995,7 +1103,9 @@ class NotificationService {
       return num != null && den != null && num > 0 && den > 0;
     });
 
-    final completeLabel = showChoose ? '✅ Tomé todo' : '✅ Ya tomé';
+    final completeLabel = showChoose
+        ? _l10n.notificationsActionCompleteAllTaken
+        : _l10n.notificationsActionCompleteTaken;
 
     final scheduleMode = reminder.requiresExactAlarm
         ? AndroidScheduleMode.exactAllowWhileIdle
@@ -1005,10 +1115,12 @@ class NotificationService {
         .map((m) => m.name)
         .toList(growable: false);
     final body = names.isEmpty
-        ? 'Tocar para registrar'
+        ? _l10n.notificationsTapToLogBody
         : (names.length <= 3
-              ? 'Tomar: ${names.join(', ')}'
-              : 'Tomar: ${names.take(3).join(', ')}…');
+              ? _l10n.notificationsTakeMedicationsBody(names.join(', '))
+              : _l10n.notificationsTakeMedicationsBody(
+                  '${names.take(3).join(', ')}…',
+                ));
 
     if (reminder.isDaily) {
       final scheduledDate = _nextInstanceOfTime(
@@ -1018,7 +1130,7 @@ class NotificationService {
 
       await _notifications.zonedSchedule(
         _groupNotificationIdDaily(reminder.id!),
-        '💊 ${group.name}',
+        _l10n.notificationsMedicationGroupTitle(group.name),
         body,
         scheduledDate,
         NotificationDetails(
@@ -1044,7 +1156,7 @@ class NotificationService {
 
         await _notifications.zonedSchedule(
           _groupNotificationIdWeekly(reminder.id!, day),
-          '💊 ${group.name}',
+          _l10n.notificationsMedicationGroupTitle(group.name),
           body,
           scheduledDate,
           NotificationDetails(
@@ -1137,17 +1249,13 @@ class NotificationService {
 
     await _notifications.zonedSchedule(
       snoozeId,
-      '💊 Recordatorio (pospuesto)',
-      'Tomar ${medication.name}',
+      _l10n.notificationsSnoozedTitle,
+      _l10n.notificationsTakeMedicationBody(medication.name),
       scheduledDate,
       NotificationDetails(
         android: _medicationAndroidDetails(
-          showChoose:
-              !(medication.defaultDoseNumerator != null &&
-                  medication.defaultDoseDenominator != null &&
-                  medication.defaultDoseNumerator! > 0 &&
-                  medication.defaultDoseDenominator! > 0),
-          completeLabel: '✅ Ya tomé',
+          showChoose: !_canCompleteInBackgroundForMedication(medication),
+          completeLabel: _l10n.notificationsActionCompleteTaken,
           completeShowsUserInterface: false,
         ),
       ),
@@ -1183,27 +1291,6 @@ class NotificationService {
       scheduled = scheduled.add(const Duration(days: 7));
     }
     return tz.TZDateTime.from(scheduled, tz.local);
-  }
-
-  /// DEBUG
-
-  Future<void> showTestNotification() async {
-    final androidDetails = AndroidNotificationDetails(
-      _medChannelId,
-      _medChannelName,
-      channelDescription: _medChannelDescription,
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-    );
-
-    await _notifications.show(
-      999,
-      'Notificación de prueba',
-      'Si ves esto, las notificaciones funcionan correctamente',
-      NotificationDetails(android: androidDetails),
-    );
   }
 }
 
@@ -1276,13 +1363,16 @@ void notificationTapBackground(NotificationResponse response) async {
 
         await NotificationService.instance._notifications.zonedSchedule(
           snoozeId,
-          '💊 Recordatorio (pospuesto)',
-          'Tocar para registrar',
+          NotificationService.instance._l10n.notificationsSnoozedTitle,
+          NotificationService.instance._l10n.notificationsTapToLogBody,
           scheduledDate,
           NotificationDetails(
             android: NotificationService.instance._medicationAndroidDetails(
               showChoose: false,
-              completeLabel: '✅ Ya tomé',
+              completeLabel: NotificationService
+                  .instance
+                  ._l10n
+                  .notificationsActionCompleteTaken,
             ),
           ),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -1306,13 +1396,16 @@ void notificationTapBackground(NotificationResponse response) async {
 
         await NotificationService.instance._notifications.zonedSchedule(
           snoozeId,
-          '💊 Recordatorio (pospuesto)',
-          'Tocar para registrar',
+          NotificationService.instance._l10n.notificationsSnoozedTitle,
+          NotificationService.instance._l10n.notificationsTapToLogBody,
           scheduledDate,
           NotificationDetails(
             android: NotificationService.instance._medicationAndroidDetails(
               showChoose: true,
-              completeLabel: '✅ Tomé todo',
+              completeLabel: NotificationService
+                  .instance
+                  ._l10n
+                  .notificationsActionCompleteAllTaken,
             ),
           ),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -1337,6 +1430,12 @@ void notificationTapBackground(NotificationResponse response) async {
 
     await NotificationService.instance.storePendingOpen(payload);
   } catch (e) {
-    debugPrint('notificationTapBackground error: $e');
+    if (kDebugMode) {
+      debugPrint(
+        NotificationService.instance._l10n.notificationsErrorProcessing(
+          e.toString(),
+        ),
+      );
+    }
   }
 }

@@ -1,0 +1,902 @@
+{
+  "@@locale": "es",
+  "splashSubtitle": "Tu registro diario de salud",
+  "@splashSubtitle": {
+    "description": "Texto secundario en la pantalla de splash."
+  },
+  "commonCancel": "Cancelar",
+  "commonContinue": "Continuar",
+  "commonNotNow": "Ahora no",
+  "commonUnderstood": "Entendido",
+  "commonAdd": "Agregar",
+  "commonEdit": "Editar",
+  "commonSave": "Guardar",
+  "commonAccept": "Aceptar",
+  "commonCreate": "Crear",
+  "commonArchive": "Archivar",
+  "commonUnarchive": "Desarchivar",
+  "commonDeletePermanently": "Eliminar definitivamente",
+  "commonDelete": "Eliminar",
+  "commonAll": "Todo",
+  "commonNone": "Nada",
+  "commonIgnore": "Ignorar",
+  "commonActive": "Activos",
+  "commonArchived": "Archivados",
+  "commonChooseRange": "Elegir rango",
+  "commonAreYouSure": "¿Seguro?",
+  "commonErrorWithMessage": "Error: {error}",
+  "@commonErrorWithMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "commonNotRecorded": "Sin registrar",
+  "commonClear": "Borrar",
+  "commonDecrease": "Bajar",
+  "commonIncrease": "Subir",
+  "commonRefresh": "Actualizar",
+  "commonRange": "Rango",
+  "commonAverage": "Promedio",
+  "commonDaysLabel": "Días",
+  "commonEveryDay": "Todos los días",
+  "commonDetailsOptional": "Detalles (opcional)",
+  "commonNoteSaved": "Nota guardada",
+  "commonIncomplete": "Sin completar",
+  "commonSelect": "Seleccionar",
+  "commonNote": "Nota",
+  "commonNoteOptionalLabel": "Nota (opcional)",
+  "commonTime": "Hora",
+  "commonQuantity": "Cantidad",
+  "commonNoMedication": "Sin medicamento",
+  "commonNoDose": "Sin dosis",
+  "commonNoDoseWithDash": "Sin dosis (—)",
+  "commonSleep": "Sueño",
+  "commonMood": "Ánimo",
+  "commonHabits": "Hábitos",
+  "commonMedication": "Medicación",
+  "commonMedications": "Medicamentos",
+  "commonReminders": "Recordatorios",
+  "commonGroup": "Grupo",
+  "commonExactAlarm": "⏰ Alarma exacta",
+  "commonDay": "Día",
+  "commonNoNotes": "Sin notas",
+  "permissionsNotificationsDisabledTitle": "Notificaciones desactivadas",
+  "permissionsNotificationsDisabledBody": "Para que los recordatorios funcionen, activa las notificaciones en Ajustes del sistema.\n\nEsto permite mostrar avisos en la hora programada.",
+  "permissionsExactAlarmsTitle": "Permitir alarmas exactas",
+  "permissionsExactAlarmsBody": "Este recordatorio necesita sonar a la hora exacta.\n\nActiva \"Alarmas y recordatorios\" para esta app. Si no lo activas, el aviso puede llegar con demora.",
+  "permissionsBatteryRecommendationTitle": "Recomendación de batería",
+  "permissionsBatteryRecommendationBody": "Este equipo ({manufacturer}) a veces restringe apps en segundo plano.\n\nSi tus notificaciones no llegan, desactiva la optimización de batería para esta app:\n\nAjustes → Batería → Sin restricciones / No optimizar",
+  "@permissionsBatteryRecommendationBody": {
+    "placeholders": {
+      "manufacturer": {}
+    }
+  },
+  "notificationsDailyChannelName": "Recordatorio diario",
+  "notificationsDailyChannelDescription": "Recordatorio para registrar el sueño diariamente",
+  "notificationsMedicationChannelName": "Recordatorios de medicación",
+  "notificationsMedicationChannelDescription": "Alarmas para tomar medicamentos",
+  "notificationsDailySleepTitle": "🌙 Registro de sueño",
+  "notificationsDailySleepBody": "¿Cómo dormiste anoche? Registra tu sueño",
+  "notificationsTestTitle": "Notificación de prueba",
+  "notificationsTestBody": "Esta es una notificación de prueba. Si la ves, ¡funciona!",
+  "notificationsMedicationTitle": "💊 Recordatorio de medicación",
+  "notificationsSnoozedTitle": "💊 Recordatorio (pospuesto)",
+  "notificationsTapToLogBody": "Tocar para registrar",
+  "notificationsMedicationFallbackName": "medicamento",
+  "notificationsTakeMedicationBody": "Tomar {name}",
+  "@notificationsTakeMedicationBody": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "notificationsTakeMedicationsBody": "Tomar: {names}",
+  "@notificationsTakeMedicationsBody": {
+    "placeholders": {
+      "names": {}
+    }
+  },
+  "notificationsMedicationGroupTitle": "💊 {groupName}",
+  "@notificationsMedicationGroupTitle": {
+    "placeholders": {
+      "groupName": {}
+    }
+  },
+  "notificationsActionChoose": "📝 Elegir",
+  "notificationsActionSnooze5min": "⏰ Posponer 5 min",
+  "notificationsActionCompleteTaken": "✅ Hecho",
+  "notificationsActionCompleteAllTaken": "✅ Hecho",
+  "notificationsAutoLogged": "Registrado automáticamente",
+  "notificationsAutoLoggedWithApplication": "Registrado automáticamente (aplicación)",
+  "notificationsErrorReminderMissingId": "El recordatorio debe tener un ID de base de datos",
+  "notificationsErrorGroupReminderMissingId": "El recordatorio de grupo debe tener un ID de DB",
+  "notificationsErrorProcessing": "Error al procesar notificación: {error}",
+  "@notificationsErrorProcessing": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "settingsTitle": "Configuración",
+  "settingsSectionAppearance": "Apariencia",
+  "settingsSectionSecurity": "Seguridad",
+  "settingsSectionReminders": "Recordatorios",
+  "settingsSectionExportData": "Exportar Datos",
+  "settingsSectionExportAnalytics": "Exportar para analítica",
+  "settingsSectionDataBackups": "Datos y Copias de Seguridad",
+  "settingsSectionInfo": "Información",
+  "settingsSectionDanger": "Zona de peligro",
+  "settingsDarkModeTitle": "Modo oscuro",
+  "settingsDarkModeUsingSystem": "Usando el tema del sistema",
+  "commonDark": "Oscuro",
+  "commonLight": "Claro",
+  "settingsPinLockTitle": "Bloqueo con PIN",
+  "settingsPinLockSubtitle": "Pide PIN para entrar a la app",
+  "settingsChangePinTitle": "Cambiar PIN",
+  "settingsChangePinSubtitle": "PIN de 4 dígitos",
+  "settingsPinUpdated": "PIN actualizado",
+  "settingsLockOnReturnTitle": "Bloquear al volver",
+  "settingsLockOnReturnDialogTitle": "Bloquear al volver de background",
+  "settingsLockTimeoutImmediateBack": "Inmediato al volver",
+  "settingsLockTimeout30Seconds": "30 segundos",
+  "settingsLockTimeout2Minutes": "2 minutos",
+  "settingsLockTimeout5Minutes": "5 minutos",
+  "settingsLockTimeoutImmediate": "Inmediato",
+  "settingsLockTimeoutSeconds": "{seconds}s",
+  "@settingsLockTimeoutSeconds": {
+    "placeholders": {
+      "seconds": {}
+    }
+  },
+  "settingsBiometricTitle": "Autenticación biométrica",
+  "settingsBiometricAvailableSubtitle": "Usar huella digital o Face ID",
+  "settingsBiometricUnavailableSubtitle": "No disponible en este dispositivo",
+  "settingsBiometricNotSupported": "Tu dispositivo no soporta autenticación biométrica",
+  "settingsDbEncryptionTitle": "Cifrado de base de datos",
+  "settingsDbEncryptionSubtitle": "Protege tus datos locales si te roban el teléfono",
+  "settingsDbEncryptionStatusOn": "Activado",
+  "settingsDbEncryptionStatusOff": "Desactivado",
+  "settingsDbEncryptionStatusUnknown": "Desconocido",
+  "settingsDbEncryptionRecommendAppLockTitle": "Recomendado: activar Bloqueo de app",
+  "settingsDbEncryptionRecommendAppLockBody": "El cifrado protege el archivo de la DB, pero si el teléfono está desbloqueado cualquiera podría abrir la app. El Bloqueo agrega una barrera extra.",
+  "settingsDbEncryptionEnableAppLockAction": "Activar",
+  "settingsDisableAppLockWarningTitle": "¿Desactivar el bloqueo de app?",
+  "settingsDisableAppLockWarningBody": "Tu base de datos está cifrada, pero desactivar el bloqueo puede exponer tus datos a cualquiera que tenga tu teléfono desbloqueado.",
+  "settingsDisableAppLockWarningDisable": "Desactivar",
+  "settingsNotificationsPermissionTitle": "Permiso de notificaciones",
+  "settingsNotificationsPermissionBody": "Las notificaciones están desactivadas. Para activarlas, ve a Configuración de la aplicación.",
+  "settingsOpenSettings": "Abrir configuración",
+  "settingsNotificationsPermissionDisabledTitle": "Permiso de notificaciones desactivado",
+  "settingsNotificationsPermissionDisabledBody": "Los recordatorios no funcionarán hasta que actives el permiso.",
+  "settingsEnableNotificationsPermissionTitle": "Activar permiso de notificaciones",
+  "settingsEnableNotificationsPermissionSubtitle": "Abrir configuración del sistema",
+  "settingsExactAlarmsPermissionDisabledTitle": "Permiso de alarmas exactas desactivado",
+  "settingsExactAlarmsPermissionDisabledBody": "El recordatorio de sueño necesita este permiso para sonar a tiempo en Android 12+.",
+  "settingsAllowExactAlarmsTitle": "Permitir alarmas exactas",
+  "settingsAllowExactAlarmsSubtitle": "Requerido para recordatorios precisos",
+  "settingsDailyReminderTitle": "Recordatorio diario",
+  "settingsDailyReminderSubtitle": "Notificación para registrar tu sueño",
+  "settingsSectionGeneral": "General",
+  "settingsLanguageTitle": "Idioma",
+  "settingsLanguageSystem": "Automático (sistema)",
+  "settingsLanguageSpanish": "Español",
+  "settingsLanguageEnglish": "English",
+  "settingsReminderTimeTitle": "Hora del recordatorio",
+  "settingsReminderSetFor": "Recordatorio configurado para las {time}",
+  "@settingsReminderSetFor": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "settingsExportDialogTitle": "Exportar datos",
+  "settingsExportDialogBody": "¿Quieres exportar todos los datos o elegir un rango de fechas?",
+  "settingsExportSelectRangeHelpText": "Selecciona el rango a exportar",
+  "settingsExportPdfButton": "Exportar a PDF",
+  "settingsExportExcelButton": "Exportar a Excel (.xlsx)",
+  "settingsExportNoData": "No hay datos para exportar. Registra algunos días primero.",
+  "settingsExportSleepRecordsTitle": "Registros de sueño",
+  "settingsExportMedicationEventsTitle": "Tomas registradas",
+  "settingsExportDateRangeTitle": "Rango de fechas",
+  "settingsExportError": "Error al exportar {type}: {error}",
+  "@settingsExportError": {
+    "placeholders": {
+      "type": {},
+      "error": {}
+    }
+  },
+  "settingsBackupCreateTitle": "Crear copia de seguridad",
+  "settingsBackupCreateSubtitle": "Exportar archivo para reinstalación",
+  "settingsBackupRestoreTitle": "Restaurar copia de seguridad",
+  "settingsBackupRestoreSubtitle": "Importar archivo previo",
+  "settingsBackupCreateError": "Error al crear backup: {error}",
+  "@settingsBackupCreateError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "settingsBackupRestoreConfirmTitle": "Restaurar copia de seguridad",
+  "settingsBackupRestoreConfirmBody": "⚠️ ALERTA: Esto eliminará todos los datos actuales y los reemplazará con los del archivo de respaldo.\n\n¿Deseas continuar?",
+  "settingsBackupRestoreConfirmYes": "Sí, restaurar",
+
+    "backupPasswordTitleCreate": "Cifrar backup (opcional)",
+    "backupPasswordHintCreate": "Deja vacío para exportar sin cifrar.",
+    "backupPasswordTitleRestore": "Contraseña del backup",
+    "backupPasswordHintRestore": "Ingresa la contraseña usada al crear el backup.",
+    "backupPasswordLabel": "Contraseña",
+    "backupPasswordConfirmLabel": "Confirmar contraseña",
+    "backupPasswordMismatch": "Las contraseñas no coinciden.",
+    "backupPasswordRequired": "La contraseña es obligatoria.",
+    "backupPasswordInvalid": "Contraseña incorrecta.",
+  "settingsBackupRestoreCompleted": "Restauración completada. Reiniciando...",
+  "settingsBackupRestoreError": "Error al restaurar: {error}",
+  "@settingsBackupRestoreError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "settingsAboutTitle": "Acerca de",
+  "settingsAboutSubtitle": "Mediary v2.0.0",
+  "settingsPrivacyInfoTitle": "Privacidad",
+  "settingsPrivacyInfoSubtitle": "Todos tus datos se guardan localmente en tu dispositivo",
+  "settingsWipeAllTitle": "Borrado total",
+  "settingsWipeAllSubtitle": "Eliminar todos los datos del dispositivo",
+  "settingsWipeAllDialogBody": "Esto eliminará TODOS tus datos guardados en el dispositivo:",
+  "settingsWipeAllItemMedications": "• Medicamentos (activos y archivados)",
+  "settingsWipeAllItemMedicationReminders": "• Recordatorios de medicación",
+  "settingsWipeAllItemIntakes": "• Tomas registradas",
+  "settingsWipeAllItemSleepEntries": "• Registros de sueño",
+  "settingsWipeAllItemAppSettings": "• Configuración y estado de la app",
+  "settingsWipeAllAcknowledge": "Entiendo que esta acción es irreversible",
+  "settingsWipeAllSuccess": "Datos eliminados correctamente",
+  "settingsWipeAllError": "Error al borrar datos: {error}",
+  "@settingsWipeAllError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationsTitle": "Medicamentos",
+  "medicationsGroupButton": "Agrupar",
+  "medicationsEmptyTitle": "No hay medicamentos",
+  "medicationsEmptySubtitle": "Agrega uno con el botón +",
+  "medicationsArchivedSectionTitle": "Archivados ({count})",
+  "@medicationsArchivedSectionTitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "medicationsUnarchiveButton": "Reactivar",
+  "medicationsAddButton": "Agregar",
+  "medicationsDialogAddTitle": "Agregar medicamento",
+  "medicationsDialogEditTitle": "Editar medicamento",
+  "medicationsGenericNameLabel": "Nombre genérico *",
+  "medicationsGenericNameHint": "Ej: Ibuprofeno",
+  "medicationsGenericNameRequired": "El nombre genérico es obligatorio",
+  "medicationsBrandNameLabel": "Nombre comercial (opcional)",
+  "medicationsBrandNameHint": "Ej: Ibupirac",
+  "medicationsBaseUnitLabel": "Unidad base *",
+  "medicationsBaseUnitHint": "Ej: 1mg, 2mg, 10ml",
+  "medicationsBaseUnitRequired": "La unidad base es obligatoria",
+  "medicationsTypeLabel": "Tipo *",
+  "medicationsDefaultDoseOptional": "Dosis habitual (opcional)",
+  "medicationsDefaultDoseQtyDrops": "Cantidad habitual (gotas)",
+  "medicationsDefaultDoseQtyCapsules": "Cantidad habitual (cápsulas)",
+  "medicationsDefaultDoseQtyLabel": "Cantidad habitual",
+  "medicationsDefaultDosePickerTitle": "Dosis habitual",
+  "medicationsDefaultDoseCustom": "Personalizada…",
+  "medicationsDefaultDoseHelper": "Esta cantidad se precargará al registrar tomas",
+  "medicationsSavedAdded": "Medicamento agregado",
+  "medicationsSavedUpdated": "Medicamento actualizado",
+  "medicationsDuplicateWarning": "Ya existe una medicación igual cargada. Puedes editarla desde la lista.",
+  "medicationsDbError": "Error de base de datos: {error}",
+  "@medicationsDbError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationsError": "Error: {error}",
+  "@medicationsError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationsManageTitle": "Gestionar medicamento",
+  "medicationsManageBody": "Elige qué quieres hacer:\n\n• Archivar: no borra registros históricos y pausa recordatorios.\n• Eliminar definitivamente: borra el medicamento y todos sus registros asociados.",
+  "medicationsArchivedSnack": "Medicamento archivado",
+  "medicationsArchiveError": "Error al archivar: {error}",
+  "@medicationsArchiveError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationsHardDeleteTitle": "Eliminar definitivamente",
+  "medicationsHardDeleteBody": "Esta acción NO se puede deshacer.\n\nSe eliminará:\n• {name}\n• todos los registros históricos asociados\n• recordatorios\n\n¿Quieres continuar?",
+  "@medicationsHardDeleteBody": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "medicationsDeletedSnack": "Medicamento eliminado definitivamente",
+  "medicationsDeleteError": "Error al eliminar: {error}",
+  "@medicationsDeleteError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationsUnarchiveTitle": "Reactivar medicamento",
+  "medicationsUnarchiveBody": "¿Reactivar este medicamento?\n\nVolverá a aparecer en la lista y en los selectores.\nLos recordatorios que tuviera configurados se reprogramarán.",
+  "medicationsUnarchivedSnack": "Medicamento reactivado",
+  "medicationsRemindersTitle": "Recordatorios",
+  "medicationsNoReminders": "Sin recordatorios",
+  "medicationsTooltipViewReminders": "Ver recordatorios",
+  "medicationsTooltipAdjustDose": "Ajustar dosis",
+  "medicationsTooltipArchiveDelete": "Archivar / Eliminar",
+  "medicationsDeleteReminderTitle": "Eliminar recordatorio",
+  "medicationsDeleteReminderBody": "¿Estás seguro de eliminar este recordatorio?",
+  "medicationsReminderDeletedSnack": "🗑️ Recordatorio eliminado",
+  "fractionPickerTitle": "Cantidad",
+  "fractionPickerWholeLabel": "Enteros",
+  "fractionPickerFractionLabel": "Fracción",
+  "fractionPickerNoFractionSelected": "Sin fracción",
+  "fractionPickerPreviewLabel": "Vista previa:",
+  "medicationDetailLoadError": "❌ Error al cargar recordatorios: {error}",
+  "@medicationDetailLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationDetailDeleteReminderTitle": "Eliminar recordatorio",
+  "medicationDetailDeleteReminderBody": "¿Eliminar el recordatorio de las {time}?",
+  "@medicationDetailDeleteReminderBody": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "medicationDetailReminderDeleted": "✅ Recordatorio eliminado",
+  "medicationDetailDeleteError": "❌ Error: {error}",
+  "@medicationDetailDeleteError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "medicationDetailDaysLabel": "Días: {days}",
+  "@medicationDetailDaysLabel": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "medicationDetailSchedulesTitle": "Horarios de toma",
+  "medicationDetailSchedulesCount": "{count, plural, one{1 horario} other{{count} horarios}}",
+  "@medicationDetailSchedulesCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "medicationDetailNoRemindersTitle": "Sin recordatorios configurados",
+  "medicationDetailNoRemindersSubtitle": "Presiona el botón + para agregar uno",
+  "medicationDetailAddSchedule": "Agregar horario",
+  "medicationGroupsTitle": "Grupos de medicación",
+  "medicationGroupsEmpty": "Todavía no tenés grupos",
+  "medicationGroupsNewGroupTitle": "Nuevo grupo",
+  "medicationGroupsNameLabel": "Nombre",
+  "medicationGroupsNameHint": "Ej: Noche",
+  "medicationGroupDetailGroupNotFound": "Grupo no encontrado",
+  "medicationGroupDetailMembersDialogTitle": "Medicamentos del grupo",
+  "medicationGroupDetailNewReminderTitle": "➕ Nuevo recordatorio",
+  "medicationGroupDetailEditReminderTitle": "✏️ Editar recordatorio",
+  "medicationGroupDetailTimeLabel": "Hora: {time}",
+  "@medicationGroupDetailTimeLabel": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "medicationGroupDetailExactAlarmTitle": "Este grupo requiere precisión (como despertador)",
+  "medicationGroupDetailExactAlarmSubtitle": "Suena aunque el celular esté en reposo. Necesita permisos especiales.",
+  "medicationGroupDetailDndWarning": "⚠️ Si usas \"No Molestar\", este recordatorio puede no sonar. Para que funcione como despertador, asegurate de permitir alarmas para esta app en Ajustes de Sonido.",
+  "medicationGroupDetailDeleteReminderTitle": "Eliminar recordatorio",
+  "medicationGroupDetailDeleteGroupTitle": "Eliminar grupo",
+  "medicationGroupDetailDeleteGroupBody": "Se eliminarán también sus recordatorios.",
+  "medicationGroupDetailDeleteGroupTooltip": "Eliminar grupo",
+  "medicationGroupDetailNoMembers": "Sin medicamentos asignados",
+  "medicationGroupDetailNoReminders": "Sin recordatorios",
+  "addReminderSelectMedicationError": "❌ Seleccioná un medicamento",
+  "addReminderSelectAtLeastOneDayError": "❌ Seleccioná al menos un día",
+  "addReminderCreated": "{icon} Recordatorio creado",
+  "@addReminderCreated": {
+    "placeholders": {
+      "icon": {}
+    }
+  },
+  "addReminderUpdated": "{icon} Recordatorio actualizado",
+  "@addReminderUpdated": {
+    "placeholders": {
+      "icon": {}
+    }
+  },
+  "addReminderTitleNew": "➕ Nuevo recordatorio",
+  "addReminderTitleEdit": "✏️ Editar recordatorio",
+  "addReminderMedicationLabel": "Medicamento",
+  "addReminderTimeTitle": "Hora del recordatorio",
+  "addReminderDaysOfWeekTitle": "Días de la semana",
+  "addReminderNoteHint": "Ej: Después de comer, con agua...",
+  "addReminderExactAlarmTitle": "Este medicamento requiere precisión (como despertador)",
+  "addReminderExactAlarmSubtitle": "Suena aunque el celular esté en reposo. Necesita permisos especiales.",
+  "addReminderDndWarning": "⚠️ Si usas \"No Molestar\", este recordatorio puede no sonar. Para que funcione como despertador, asegurate de permitir alarmas para esta app en Ajustes de Sonido.",
+  "addReminderSaveButton": "Guardar recordatorio",
+  "addReminderUpdateButton": "Actualizar recordatorio",
+  "quickIntakeSelectAtLeastOneMedication": "Selecciona al menos un medicamento",
+  "quickIntakeAutoLoggedWithoutDose": "Registrado automáticamente (sin dosis)",
+  "quickIntakeMissingDefaultDose": "Sin dosis por defecto: {names}",
+  "@quickIntakeMissingDefaultDose": {
+    "placeholders": {
+      "names": {}
+    }
+  },
+  "quickIntakeSaved": "✅ Toma registrada",
+  "quickIntakeMedicationNotFound": "Medicamento no encontrado",
+  "quickIntakeSnoozed": "⏰ Recordatorio pospuesto {minutes} min",
+  "@quickIntakeSnoozed": {
+    "placeholders": {
+      "minutes": {}
+    }
+  },
+  "quickIntakeAppBarGroup": "💊 {groupName}",
+  "@quickIntakeAppBarGroup": {
+    "placeholders": {
+      "groupName": {}
+    }
+  },
+  "quickIntakeDefaultGroupName": "Grupo de medicación",
+  "quickIntakeAppBarSingle": "💊 Recordatorio",
+  "quickIntakeNoActiveMeds": "No hay medicamentos activos para este recordatorio",
+  "quickIntakeUnitLabel": "Unidad: {unit}",
+  "@quickIntakeUnitLabel": {
+    "placeholders": {
+      "unit": {}
+    }
+  },
+  "quickIntakeWhatToDo": "¿Qué quieres hacer?",
+  "quickIntakeIHaveTaken": "Ya tomé",
+  "quickIntakeSnooze10m": "Posponer 10 minutos",
+  "quickIntakeSnooze1h": "Posponer 1 hora",
+  "quickIntakeChooseTaken": "Elige cuáles tomaste",
+  "quickIntakeSelectedCount": "{selected}/{total} seleccionados",
+  "@quickIntakeSelectedCount": {
+    "placeholders": {
+      "selected": {},
+      "total": {}
+    }
+  },
+  "quickIntakeSaveSelectedClose": "Guardar seleccionadas (cerrar)",
+  "quickIntakeRemainingHint": "Las {remaining} restantes no se vuelven a avisar automáticamente. Si quieres que te notifique más tarde, usa “Posponer restantes”.",
+  "@quickIntakeRemainingHint": {
+    "placeholders": {
+      "remaining": {}
+    }
+  },
+  "quickIntakeSnoozeRemaining10m": "Posponer restantes 10m",
+  "quickIntakeSnoozeRemaining1h": "Posponer restantes 1h",
+  "dailyEntryTitle": "Registrar tu día",
+  "dailyEntryTabDayOptional": "Día (opcional)",
+  "dailyEntryTabSleepOptional": "Sueño (opcional)",
+  "dailyEntryTabMedication": "Medicación",
+  "dailyEntryMedicationAdded": "Medicación agregada",
+  "dailyEntrySaveError": "Error al guardar",
+  "dailyEntrySaveErrorWithMessage": "Error al guardar: {error}",
+  "@dailyEntrySaveErrorWithMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dailyEntrySaveSuccess": "Registro guardado correctamente",
+  "dayTabHeader": "Día {date}",
+  "@dayTabHeader": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "dayTabOptionalHint": "Opcional. Si no quieres, puedes dejar todo vacío.",
+  "dayTabMoodTitle": "Ánimo",
+  "dayTabMoodQuestion": "Cómo te sientes hoy?",
+  "dayTabMoodVeryBad": "Muy mal",
+  "dayTabMoodBad": "Mal",
+  "dayTabMoodOk": "Regular",
+  "dayTabMoodGood": "Bien",
+  "dayTabMoodVeryGood": "Muy bien",
+  "dayTabDayNotesTitle": "Notas del día",
+  "dayTabDayNotesHint": "Algo para recordar sobre el día...",
+  "dayTabHabitsTitle": "Hábitos",
+  "dayTabWaterTitle": "Agua",
+  "dayTabWaterCount": "Vasos: {count}",
+  "@dayTabWaterCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dayTabWaterCountLabel": "Agua: {count}",
+  "@dayTabWaterCountLabel": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dayTabBlocksWalkedTitle": "Cuadras caminadas",
+  "dayTabBlocksWalkedHint": "Ej: 12",
+  "dayTabBlocksWalkedHelper": "0–1000 aprox.",
+  "sleepTabNightOf": "Noche del {date}",
+  "@sleepTabNightOf": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "sleepTabNightRange": "({startDay}→{endDay})",
+  "@sleepTabNightRange": {
+    "placeholders": {
+      "startDay": {},
+      "endDay": {}
+    }
+  },
+  "sleepTabHowDidYouSleep": "Cómo dormiste?",
+  "sleepTabHowLongDidYouSleep": "¿Cuánto dormiste?",
+  "sleepTabHours": "Horas",
+  "sleepTabMinutes": "Minutos",
+  "sleepTabHowWasSleep": "¿Cómo fue el sueño?",
+  "sleepTabContinuityStraight": "De corrido",
+  "sleepTabContinuityBroken": "Cortado",
+  "sleepTabOptionalHint": "Opcional: si no quieres, déjalo vacío.",
+  "sleepTabGeneralNotesOptional": "Notas generales (opcional)",
+  "sleepTabNotesHint": "Algo para recordar mañana...",
+  "medicationTabExpandAll": "Expandir todo",
+  "medicationTabCollapseAll": "Contraer todo",
+  "medicationTabEmptyTitle": "Sin medicamentos registrados",
+  "medicationTabEmptySubtitle": "Presiona el botón + para agregar",
+  "medicationTabAddMedication": "Agregar medicación",
+  "medicationTabDoseApplication": "Aplicación",
+  "medicationTabDropsDose": "{count, plural, one{1 gota} other{{count} gotas}}",
+  "@medicationTabDropsDose": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "medicationTabCapsulesDose": "{count, plural, one{1 cápsula} other{{count} cápsulas}}",
+  "@medicationTabCapsulesDose": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "medicationTabCustomQuantityTitle": "Cantidad personalizada",
+  "medicationTabMedicationLabel": "Medicamento",
+  "medicationTabAddAnotherMedication": "+ Agregar otro",
+  "medicationTabDoseDropsLabel": "Cantidad de gotas",
+  "medicationTabDoseCapsulesLabel": "Cantidad de cápsulas",
+  "medicationTabNoteOptionalLabel": "Nota (opcional)",
+  "medicationTabNoteHint": "Efectos, contexto...",
+  "homeTitle": "Diario",
+  "homeTooltipSummary": "Resumen",
+  "homeTooltipMedications": "Medicamentos",
+  "homeTooltipSettings": "Ajustes",
+  "homeCalendarViewTooltip": "Vista",
+  "homeCalendarFilterTooltip": "Filtrar",
+  "homeCalendarMonth": "Mes",
+  "homeCalendarTwoWeeks": "2 semanas",
+  "homeCalendarWeek": "Semana",
+  "homeRemindersTodayTitle": "Recordatorios de hoy",
+  "homeRemindersSnoozedHeader": "Pospuestos",
+  "summaryTitle": "Resumen",
+  "summaryLoadError": "No se pudo cargar el resumen.",
+  "summaryLastNDays": "Últimos {days} días",
+  "@summaryLastNDays": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "summaryTabStats": "Estadísticas",
+  "summaryTabPatterns": "Patrones",
+  "summaryViewDayByDay": "Ver detalle día por día →",
+  "summaryPatternsRangeHint": "Relaciones disponibles en 30 y 90 días.",
+  "summarySleepAverageQuality": "Promedio de calidad de sueño",
+  "summarySleepNoRecords": "Sin registros de sueño en este período",
+  "summaryMoodNoRecords": "Sin registros de ánimo en este período",
+  "summaryMoodMostFrequentPrefix": "El ánimo más frecuente fue",
+  "summaryMedicationDaysWith": "Días con medicación registrada: {withCount} de {total}",
+  "@summaryMedicationDaysWith": {
+    "placeholders": {
+      "withCount": {},
+      "total": {}
+    }
+  },
+  "summaryDaysWithoutRecord": "Días sin registro: {days}",
+  "@summaryDaysWithoutRecord": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "summaryPatternsStreaks": "Rachas",
+  "summaryPatternsGoals": "Metas",
+  "summaryPatternsInsights": "Insights",
+  "summaryStreakCurrent": "Actual: {value}",
+  "@summaryStreakCurrent": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "summaryStreakBest": "Mejor: {value}",
+  "@summaryStreakBest": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "summaryGoalDaysProgress": "{achieved}/{total} días",
+  "@summaryGoalDaysProgress": {
+    "placeholders": {
+      "achieved": {},
+      "total": {}
+    }
+  },
+  "summaryInsightsDisclaimer": "Son comparaciones dentro del período (no implican causalidad).",
+  "summaryInsightStrengthNotEnoughData": "Sin datos",
+  "summaryInsightStrengthWeak": "Débil",
+  "summaryInsightStrengthPreliminary": "Preliminar",
+  "summaryInsightStrengthModerate": "Moderada",
+  "summaryInsightStrengthStrong": "Fuerte",
+  "summaryDaysWithRecordLabel": "Días con registro (de {rangeDays}):",
+  "@summaryDaysWithRecordLabel": {
+    "placeholders": {
+      "rangeDays": {}
+    }
+  },
+  "summaryAvgShortWithValue": "Prom: {value}",
+  "@summaryAvgShortWithValue": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "summaryBlocksWalkedDays": "Cuadras caminadas: {days}",
+  "@summaryBlocksWalkedDays": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "summaryWaterDays": "💧 Agua: {days}",
+  "@summaryWaterDays": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "summarySleepTrendHigherAtEnd": "La calidad de sueño fue más alta hacia el final del período",
+  "summarySleepTrendHigherAtStart": "La calidad de sueño fue más alta hacia el inicio del período",
+  "summaryPatternWaterGoal": "💧 Agua ≥6",
+  "summaryPatternSleepGoal": "🛏️ Sueño ≥4",
+  "summaryPatternMoodGoal": "😊 Ánimo ≥4",
+  "summaryMetricSleep": "sueño",
+  "summaryMetricMood": "ánimo",
+  "summaryMetricWater": "agua",
+  "summaryInsightTitleSleepMood": "Sueño ↔ Ánimo",
+  "summaryInsightTitleWaterMood": "Agua ↔ Ánimo",
+  "summaryInsightDirHigher": "más alto",
+  "summaryInsightDirLower": "más bajo",
+  "summaryInsightBaseMinPairs": "Base: {pairCount} días (mínimo: {minPairs})",
+  "@summaryInsightBaseMinPairs": {
+    "placeholders": {
+      "pairCount": {},
+      "minPairs": {}
+    }
+  },
+  "summaryInsightMessageMinPairs": "Preliminar: hay pocos días con ambos datos cargados para comparar.",
+  "summaryInsightBaseNoGroup": "Base: {pairCount} días",
+  "@summaryInsightBaseNoGroup": {
+    "placeholders": {
+      "pairCount": {}
+    }
+  },
+  "summaryInsightMessageNoGroup": "Preliminar: no hay suficientes datos para agrupar.",
+  "summaryInsightGroupHintShort": "días con más {xLabel} vs menos {xLabel}",
+  "@summaryInsightGroupHintShort": {
+    "placeholders": {
+      "xLabel": {}
+    }
+  },
+  "summaryInsightGroupHintLong": "mejores vs peores ~30% (según {xLabel})",
+  "@summaryInsightGroupHintLong": {
+    "placeholders": {
+      "xLabel": {}
+    }
+  },
+  "summaryInsightBaseTopBottom": "Base: {pairCount} días · {groupHint} · grupos: {g} y {g}",
+  "@summaryInsightBaseTopBottom": {
+    "placeholders": {
+      "pairCount": {},
+      "groupHint": {},
+      "g": {}
+    }
+  },
+  "summaryInsightMessageTopBottom": "En tus días con {xLabel} más alto, {yLabel} tiende a ser {dirWord} (Δ {delta}).",
+  "@summaryInsightMessageTopBottom": {
+    "placeholders": {
+      "xLabel": {},
+      "yLabel": {},
+      "dirWord": {},
+      "delta": {}
+    }
+  },
+  "selectedDayDeleteTooltip": "Eliminar registro del día",
+  "selectedDayDeleteDialogTitle": "Eliminar registro",
+  "selectedDayDeleteDialogBody": "¿Eliminar el registro COMPLETO de este día?\n\nSe borrarán: sueño, medicación (tomas), ánimo y notas.",
+  "selectedDayChipSleepWithQuality": "Sueño: {quality}/5",
+  "@selectedDayChipSleepWithQuality": {
+    "placeholders": {
+      "quality": {}
+    }
+  },
+  "selectedDayChipSleepEmpty": "Sueño: —",
+  "selectedDayChipMedicationWithCount": "Medicación: {count}",
+  "@selectedDayChipMedicationWithCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "selectedDayChipMedicationEmpty": "Medicación: —",
+  "selectedDayNoMoodRecorded": "Sin ánimo registrado",
+  "selectedDayNoWater": "Sin agua",
+  "selectedDayBlocksWalkedValue": "Cuadras caminadas: {value}",
+  "@selectedDayBlocksWalkedValue": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "selectedDayNoBlocksWalked": "Sin cuadras caminadas registradas",
+  "selectedDayNoSleepRecord": "Sin registro de sueño",
+  "selectedDayMedicationsTitle": "Medicaciones",
+  "selectedDayNoMedications": "Sin medicaciones registradas",
+  "selectedDayMedicationFallbackName": "Medicamento {id}",
+  "@selectedDayMedicationFallbackName": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "selectedDayMedicationQtyLabelRecord": "Registro",
+  "commonBack": "Atrás",
+  "commonNext": "Siguiente",
+  "commonSkip": "Omitir",
+  "commonSaving": "Guardando…",
+  "welcomeStart": "Comenzar",
+  "welcomePage1Title": "Tu registro diario, sin esfuerzo",
+  "welcomePage1Body": "Anota medicación, sueño y notas del día en pocos segundos.",
+  "welcomePage2Title": "Recordatorios, si los necesitas",
+  "welcomePage2Body": "Programa alarmas para tus tomas o úsalo solo para registrar.",
+  "welcomePage3Title": "Tu historial en calendario",
+  "welcomePage3Body": "Vas a poder ver días registrados y detectar patrones con el tiempo.",
+  "welcomePage4Title": "Todo queda en tu teléfono",
+  "welcomePage4Body": "Se guarda localmente. Sin cuentas, sin servidores, sin internet.",
+  "appLockBiometricReason": "Autenticación requerida",
+  "setPinTitleCreate": "Crear PIN",
+  "setPinTitleChange": "Cambiar PIN",
+  "setPinEnterCurrentPinError": "Ingresa tu PIN actual (4 dígitos)",
+  "setPinInvalidPinError": "El PIN debe tener 4 dígitos",
+  "setPinPinsDoNotMatch": "Los PIN no coinciden",
+  "setPinTooManyAttemptsSeconds": "Demasiados intentos. Espera {seconds}s",
+  "@setPinTooManyAttemptsSeconds": {
+    "placeholders": {
+      "seconds": {}
+    }
+  },
+  "setPinCurrentPinIncorrect": "PIN actual incorrecto",
+  "setPinCurrentPinLabel": "PIN actual",
+  "setPinNewPinLabel": "Nuevo PIN (4 dígitos)",
+  "setPinConfirmNewPinLabel": "Confirmar nuevo PIN",
+  "lockScreenEnterPinTitle": "Ingresa tu PIN",
+  "lockScreenPinHint": "4 dígitos",
+  "lockScreenLockedOut": "Bloqueado por seguridad. Intenta de nuevo en {time}",
+  "@lockScreenLockedOut": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "lockScreenTooManyAttempts": "Demasiados intentos. Espera {time}",
+  "@lockScreenTooManyAttempts": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "lockScreenPinIncorrectAttemptsLeft": "PIN incorrecto. Intentos restantes: {left}",
+  "@lockScreenPinIncorrectAttemptsLeft": {
+    "placeholders": {
+      "left": {}
+    }
+  },
+  "lockScreenUseBiometrics": "Usar huella digital",
+  "dailyEntryValidationFutureDay": "No se puede registrar un día futuro.",
+  "dailyEntryValidationSelectMedication": "Por favor selecciona el medicamento en el evento {index}",
+  "@dailyEntryValidationSelectMedication": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "dailyEntryValidationGelNoQuantity": "Para gel no se registra cantidad. Deja “Sin dosis” en el evento {index}.",
+  "@dailyEntryValidationGelNoQuantity": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "dailyEntryValidationInvalidQuantityInteger": "La cantidad del evento {index} es inválida. Elige “Sin dosis” o un entero válido.",
+  "@dailyEntryValidationInvalidQuantityInteger": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "dailyEntryValidationInvalidQuantityFraction": "La cantidad del evento {index} es inválida. Elige “Sin dosis” o una fracción válida.",
+  "@dailyEntryValidationInvalidQuantityFraction": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "dailyEntryValidationSleepNeedsQuality": "Para guardar el sueño, elige “Cómo dormiste” (1–5) o borra los detalles.",
+  "medicationTypeTablet": "comprimido",
+  "medicationTypeDrops": "gotas",
+  "medicationTypeCapsule": "cápsula",
+  "medicationTypeGel": "gel/crema",
+  "backupShareSubject": "Copia de seguridad Mediary ({date})",
+  "@backupShareSubject": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "backupShareText": "Copia de seguridad de mis datos de Mediary.",
+  "backupInvalidFileFormat": "Formato de archivo inválido",
+  "backupNewerThanApp": "Versión de backup más reciente que la app. Actualizá la app.",
+  "exportNoData": "NO DATA",
+  "exportSectionSleep": "Registro de sueño",
+  "exportSectionMedications": "Registro de medicaciones",
+  "exportSectionDay": "Registro del día",
+  "exportSleepHeaderNight": "Noche",
+  "exportSleepHeaderQuality": "Calidad",
+  "exportSleepHeaderDescription": "Descripción",
+  "exportSleepHeaderHours": "Horas",
+  "exportSleepHeaderHow": "Cómo",
+  "exportSleepHeaderComments": "Comentarios",
+  "exportSleepContinuityContinuous": "Continuo",
+  "exportSleepContinuityBroken": "Cortado",
+  "exportSleepQualityVeryBad": "Muy mal",
+  "exportSleepQualityBad": "Mal",
+  "exportSleepQualityOk": "Regular",
+  "exportSleepQualityGood": "Bien",
+  "exportSleepQualityVeryGood": "Muy bien",
+  "exportMedicationHeaderDay": "Día",
+  "exportMedicationHeaderTime": "Hora",
+  "exportMedicationHeaderMedication": "Medicamento",
+  "exportMedicationHeaderUnit": "Unidad",
+  "exportMedicationHeaderQuantity": "Cantidad",
+  "exportMedicationHeaderNote": "Nota",
+  "exportMedicationHeaderNotes": "Notas",
+  "exportMedicationApplication": "Aplicación",
+  "exportMedicationFallback": "Medicamento {id}",
+  "@exportMedicationFallback": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "exportShareCsv": "Exportación CSV",
+  "exportShareSleepAnalyticsCsv": "Exportación para analítica: sleep.csv",
+  "exportShareMedicationsAnalyticsCsv": "Exportación para analítica: medications.csv",
+  "exportShareExcel": "Exportación Excel (.xlsx)",
+  "exportSharePdf": "Exportación PDF",
+  "exportFileBaseDiary": "diario_medicamentos",
+  "exportFileBaseSleepAnalytics": "sleep",
+  "exportFileBaseMedicationsAnalytics": "medications",
+  "exportSheetSleep": "Sueño",
+  "exportSheetMedications": "Medicaciones",
+  "exportSheetDay": "Día",
+  "exportDayHeaderDate": "Fecha",
+  "exportDayHeaderMood": "Ánimo",
+  "exportDayHeaderBlocksWalked": "Cuadras caminadas",
+  "exportDayHeaderWater": "Agua",
+  "exportDayHeaderDayNotes": "Notas del día",
+  "exportDayHeaderDayNotesAbbrev": "Notas día",
+  "exportErrorExcelGeneration": "No se pudo generar el archivo Excel",
+  "exportPdfTitle": "Diario (Sueño + Medicación + Día)",
+  "exportPdfExportedAt": "Exportado: {timestamp}",
+  "@exportPdfExportedAt": {
+    "placeholders": {
+      "timestamp": {}
+    }
+  },
+  "exportPdfSectionSleep": "Registro de Sueño",
+  "exportPdfSectionMedications": "Diario de Medicaciones",
+  "exportPdfSectionDay": "Registro del Día"
+}
